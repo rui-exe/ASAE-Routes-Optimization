@@ -1,63 +1,205 @@
-import csv 
 import numpy as np
 import copy, random, math
 import datetime
 import pandas as pd
+import ast
 
 distancesFileName = "distances.csv"
 establishmentsFileName = "establishments.csv"
 
-def read_csv(filename):
-    return pd.read_csv(filename)
+
+conv = {'Opening Hours': lambda x: ast.literal_eval(x)}
+
+distances = pd.read_csv(distancesFileName,index_col=0)
+establishments = pd.read_csv(establishmentsFileName, converters=conv)
 
 
-#distances = np.loadtxt(distancesFileName, delimiter=",")
-establishments = read_csv(establishmentsFileName)
-#print second row
-print(establishments.iloc[1]["Opening Hours"])
+#num_establishments = len(establishments) - 1
+num_establishments = 200
 
-num_establishments = len(establishments) - 1
 num_vehicles = math.floor(0.1*num_establishments)
 max_hours = 8
 
 END_OF_SHIFT = datetime.time(17, 0)
 
+def add_seconds(time, seconds):
+    return (datetime.datetime.combine(datetime.datetime.today(), time) + datetime.timedelta(seconds=seconds)).time()
+    
 
-def can_visit(establishment, vehicle):
+def add_minutes(time, minutes):
+    return (datetime.datetime.combine(datetime.datetime.today(), time) + datetime.timedelta(minutes=minutes)).time()
+
+def can_visit(vehicle,establishment):
     current_establishment = vehicle["establishments"][-1]
     current_time = vehicle["current_time"]
-    distance = distances[current_establishment][establishment]
-    if  current_time + datetime.timedelta(minutes=distance) < END_OF_SHIFT:
-        return True
-    return None
+
+    time_to_establishment = distances.loc[f'p_{current_establishment}'][f'p_{establishment}']
+    time_to_depot = distances.loc[f'p_{establishment}']['p_0']
+    establishment_opening_hours = establishments.iloc[establishment]["Opening Hours"] # Get list with the working hours of the establishment
+    inspection_duration = establishments.iloc[establishment]["Inspection Time"].item()
 
 
-def generate_random_solution():
-    solution=[{"establishments":[],
-               "current_time":datetime.time(9, 0),
-              } for _ in range(0,num_vehicles)]
-    print(solution)
+    arriving_time = add_seconds(current_time,time_to_establishment) # Add distance to current time
+    end_of_inpection = add_minutes(arriving_time,inspection_duration) #Add inspection time to arriving time
+    arrival_at_depot = add_seconds(end_of_inpection,time_to_depot) #Add distance to current time
+
     
-    establishments_shuffled = random.shuffle(copy.deepcopy(establishments))
+    if arrival_at_depot < END_OF_SHIFT and establishment_opening_hours[arriving_time.hour]:
+        return end_of_inpection
+    else:
+        return False
+    
+def generate_random_solution():
+    solution={"vehicles":[{"establishments":[0],
+               "current_time":datetime.time(9, 0),
+              } for _ in range(0,num_vehicles)],
+              "unvisited_establishments":list(range(1,num_establishments))}
+    
+    establishments_shuffled = list(range(1,num_establishments))
+    random.shuffle(establishments_shuffled)
 
     for establishment in establishments_shuffled:
-        vehicles_to_check = random.shuffle(list(range(0,num_vehicles)))
+        vehicles_to_check = list(range(0,num_vehicles))
+        random.shuffle(vehicles_to_check)
         for vehicle_to_check in vehicles_to_check:
-            print()
+            end_of_inpection = can_visit(solution["vehicles"][vehicle_to_check],establishment)
+            if end_of_inpection:
+                solution["vehicles"][vehicle_to_check]["establishments"].append(establishment)
+                solution["unvisited_establishments"].remove(establishment)
+                solution["vehicles"][vehicle_to_check]["current_time"] = end_of_inpection
+                break
+
+    for vehicle in solution["vehicles"]:
+        time_to_depot = distances.loc[f'p_{vehicle["establishments"][-1]}']['p_0']
+        vehicle["establishments"].append(0)
+        vehicle["current_time"] = add_seconds(vehicle["current_time"],time_to_depot)
+
+    return solution
+
+def minutes_not_working(vehicle):
+    datetime1 = datetime.datetime.combine(datetime.date.today(), END_OF_SHIFT)
+    datetime2 = datetime.datetime.combine(datetime.date.today(), vehicle["current_time"])
+
+    timedelta = datetime1 - datetime2
+
+    return timedelta.total_seconds() / 60
 
 def evaluate_solution(solution):
-    return None
+    total_minutes_not_working = sum(map(lambda vehicle:minutes_not_working(vehicle),solution["vehicles"]))
+    visited_establishments = num_establishments-len(solution["unvisited_establishments"])
+    return 460*visited_establishments+total_minutes_not_working
+
+
+
+def is_possible(establishments):
+    vehicle={"establishments":[0],
+               "current_time":datetime.time(9, 0),
+              } 
+    
+    for establishment in establishments:
+        end_of_inpection = can_visit(vehicle,establishment)
+        if end_of_inpection:
+            vehicle["establishments"].append(establishment)
+            vehicle["current_time"] = end_of_inpection
+        else:
+            return False
+        
+    time_to_depot = distances.loc[f'p_{vehicle["establishments"][-1]}']['p_0']
+    vehicle["establishments"].append(0)
+    vehicle["current_time"] = add_seconds(vehicle["current_time"],time_to_depot)
+    
+    return vehicle
+
+
+def change_two_establishments_in_vehicle(solution):
+    neighbor = copy.deepcopy(solution)
+    vehicle = random.randint(0,num_vehicles-1)
+    establishment_1 = random.randint(1,len(neighbor["vehicles"][vehicle]["establishments"])-2)
+    establishments_to_visit = list(range(1,len(neighbor["vehicles"][vehicle]["establishments"])-1))
+    random.shuffle(establishments_to_visit)
+    for establishment_2 in establishments_to_visit:
+        if establishment_1 != establishment_2:
+            neighbor["vehicles"][vehicle]["establishments"][establishment_1],neighbor["vehicles"][vehicle]["establishments"][establishment_2] = neighbor["vehicles"][vehicle]["establishments"][establishment_2],neighbor["vehicles"][vehicle]["establishments"][establishment_1]
+            new_vehicle=is_possible(neighbor["vehicles"][vehicle]["establishments"])
+            if new_vehicle:
+                neighbor["vehicles"][vehicle]=new_vehicle
+                return neighbor
+            else:
+                neighbor["vehicles"][vehicle]["establishments"][establishment_1],neighbor["vehicles"][vehicle]["establishments"][establishment_2] = neighbor["vehicles"][vehicle]["establishments"][establishment_2],neighbor["vehicles"][vehicle]["establishments"][establishment_1] # Undo change
+            
+    return solution
+
+def change_random_establishment(solution):
+    neighbor = copy.deepcopy(solution)
+    vehicle = random.randint(0,num_vehicles-1)
+    establishment_1_index = random.randint(1,len(neighbor["vehicles"][vehicle]["establishments"])-2)
+    establishment_to_mark_as_unvisited =  neighbor["vehicles"][vehicle]["establishments"][establishment_1_index]
+    establishments_to_visit = copy.deepcopy(neighbor["unvisited_establishments"])
+    random.shuffle(establishments_to_visit)
+    
+    for establishment_to_visit in establishments_to_visit:
+        neighbor["unvisited_establishments"].remove(establishment_to_visit)
+        neighbor["unvisited_establishments"].append(establishment_to_mark_as_unvisited)
+        neighbor["vehicles"][vehicle]["establishments"][establishment_1_index] = establishment_to_visit
+
+        new_vehicle=is_possible(neighbor["vehicles"][vehicle]["establishments"])
+        if new_vehicle:
+            neighbor["vehicles"][vehicle]=new_vehicle
+            return neighbor
+        else:
+            neighbor["unvisited_establishments"].append(establishment_to_visit)
+            neighbor["unvisited_establishments"].remove(establishment_to_mark_as_unvisited)
+            neighbor["vehicles"][vehicle]["establishments"][establishment_1_index] = establishment_to_mark_as_unvisited
+
+    return solution
+
+def calculate_current_time(vehicle):
+    current_time = datetime.time(9, 0)
+    establishments = range(1,len(vehicle["establishments"]))
+    for establishment in establishments:
+        current_time = add_seconds(current_time,distances.loc[f'p_{vehicle["establishments"][establishment-1]}'][f'p_{vehicle["establishments"][establishment]}'])
+    return current_time
+
+def remove_random_establishment(solution):
+    neighbor = copy.deepcopy(solution)
+    vehicle = random.randint(0,num_vehicles-1)
+    establishment_index = random.randint(1,len(neighbor["vehicles"][vehicle]["establishments"])-2)
+    establishment_to_mark_as_unvisited =  neighbor["vehicles"][vehicle]["establishments"][establishment_index]
+    neighbor["unvisited_establishments"].append(establishment_to_mark_as_unvisited)
+    neighbor["vehicles"][vehicle]["establishments"].pop(establishment_index)
+    neighbor["vehicles"][vehicle]["current_time"] = calculate_current_time(neighbor["vehicles"][vehicle])
+    return neighbor
+    
+
+def add_random_establishment(solution):
+    neighbor = copy.deepcopy(solution)
+    vehicle = random.randint(0,num_vehicles-1)
+    establishments_to_visit = copy.deepcopy(neighbor["unvisited_establishments"])
+    random.shuffle(establishments_to_visit)
+    
+    for establishment_to_visit in establishments_to_visit:
+        neighbor["unvisited_establishments"].remove(establishment_to_visit)
+        neighbor["vehicles"][vehicle]["establishments"].append(establishment_to_visit)
+
+        new_vehicle=is_possible(neighbor["vehicles"][vehicle]["establishments"])
+        if new_vehicle:
+            neighbor["vehicles"][vehicle]=new_vehicle
+            return neighbor
+        else:
+            neighbor["unvisited_establishments"].append(establishment_to_visit)
+            neighbor["vehicles"][vehicle]["establishments"].remove(establishment_to_visit)
+    return solution
 
 def get_neighbor_solution(solution):
-    return None
-    
+    neighbor_function = random.choice([change_two_establishments_in_vehicle,change_random_establishment,remove_random_establishment,add_random_establishment])
+    return neighbor_function(solution)
     
 def get_hc_solution(num_iterations, log=False):
     iteration = 0
     best_solution = generate_random_solution()
     best_score = evaluate_solution(best_solution)
 
-    print(f"Init Solution:  {best_solution}, score: {best_score}")
+    establishments_visited = num_establishments-len(best_solution["unvisited_establishments"])
 
     while iteration < num_iterations:
         iteration += 1
@@ -70,8 +212,15 @@ def get_hc_solution(num_iterations, log=False):
         if log:
             (print(f"Solution:       {best_solution}, score: {best_score}"))
 
-    print(f"Final Solution: {best_solution}, score: {best_score}")
+    print(f"Random Solution Score: {establishments_visited}")
+    establishments_visited = num_establishments-len(best_solution["unvisited_establishments"])
+    print(f"Final Solution Score: {establishments_visited}")
     return best_solution
+
+
+
+get_hc_solution(1000)
+
 
 
 def get_sa_solution(num_iterations, log=False):
