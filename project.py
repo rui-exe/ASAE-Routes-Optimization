@@ -15,7 +15,7 @@ establishments = pd.read_csv(establishmentsFileName, converters=conv)
 
 
 #num_establishments = len(establishments) - 1
-num_establishments = 200
+num_establishments = 50
 
 num_vehicles = math.floor(0.1*num_establishments)
 max_hours = 8
@@ -85,9 +85,9 @@ def minutes_not_working(vehicle):
     return timedelta.total_seconds() / 60
 
 def evaluate_solution(solution):
-    total_minutes_not_working = sum(map(lambda vehicle:minutes_not_working(vehicle),solution["vehicles"]))
+    #total_minutes_not_working = sum(map(lambda vehicle:minutes_not_working(vehicle),solution["vehicles"]))
     visited_establishments = num_establishments-len(solution["unvisited_establishments"])
-    return 460*visited_establishments+total_minutes_not_working
+    return visited_establishments
 
 
 
@@ -114,6 +114,8 @@ def is_possible(establishments):
 def change_two_establishments_in_vehicle(solution):
     neighbor = copy.deepcopy(solution)
     vehicle = random.randint(0,num_vehicles-1)
+    if len(neighbor["vehicles"][vehicle]["establishments"]) <= 2:
+        return solution
     establishment_1 = random.randint(1,len(neighbor["vehicles"][vehicle]["establishments"])-2)
     establishments_to_visit = list(range(1,len(neighbor["vehicles"][vehicle]["establishments"])-1))
     random.shuffle(establishments_to_visit)
@@ -191,7 +193,7 @@ def add_random_establishment(solution):
     return solution
 
 def get_neighbor_solution(solution):
-    neighbor_function = random.choice([change_two_establishments_in_vehicle,change_random_establishment,remove_random_establishment,add_random_establishment])
+    neighbor_function = random.choice([change_two_establishments_in_vehicle,remove_random_establishment,change_random_establishment,add_random_establishment])
     return neighbor_function(solution)
     
 def get_hc_solution(num_iterations, log=False):
@@ -219,7 +221,7 @@ def get_hc_solution(num_iterations, log=False):
 
 
 
-get_hc_solution(1000)
+#get_hc_solution(1000)
 
 
 
@@ -257,19 +259,94 @@ def get_sa_solution(num_iterations, log=False):
     return best_solution
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 # Genetic Algorithms 
 
 # 4.2 c)
 def midpoint_crossover(solution_1, solution_2):
-    return None
+    child_1 = copy.deepcopy(solution_1)
+    child_2 = copy.deepcopy(solution_2)
+    
+    for vehicule_idx in range(num_vehicles):
+        vehicle_1 = child_1["vehicles"][vehicule_idx]   
+        vehicle_2 = child_2["vehicles"][vehicule_idx] 
+        crossover_point = max(len(vehicle_1["establishments"]),len(vehicle_2["establishments"]))//2
+        temp = vehicle_1["establishments"][crossover_point:-1]
+        vehicle_1["establishments"][crossover_point:-1] = vehicle_2["establishments"][crossover_point:-1]
+        vehicle_2["establishments"][crossover_point:-1] = temp
+
+        new_vehicle_1=is_possible(vehicle_1["establishments"])
+
+        while not new_vehicle_1:
+            vehicle_1["establishments"] = vehicle_1["establishments"][:-2]+vehicle_1["establishments"][-1:]
+            new_vehicle_1=is_possible(vehicle_1["establishments"])
+
+
+        new_vehicle_2 =is_possible(vehicle_2["establishments"])
+        while not new_vehicle_2:
+            vehicle_2["establishments"] = vehicle_1["establishments"][:-2]+vehicle_1["establishments"][-1:]
+            new_vehicle_2=is_possible(vehicle_2["establishments"])
+        
+
+
+    return child_1, child_2 
 
 def randompoint_crossover(solution_1, solution_2):
-    return None
+    child_1 = copy.deepcopy(solution_1)
+    child_2 = copy.deepcopy(solution_2)
+    
+    for vehicule_idx in range(num_vehicles):
+        vehicle_1 = child_1["vehicles"][vehicule_idx]   
+        vehicle_2 = child_2["vehicles"][vehicule_idx] 
+        
+        crossover_point = random.randint(1,min(len(vehicle_1["establishments"]),len(vehicle_2["establishments"])-2))
+        vehicle_1["establishments"][crossover_point:] = vehicle_2["establishments"][crossover_point:]
+        vehicle_2["establishments"][crossover_point:] = vehicle_1["establishments"][crossover_point:]
 
+        new_vehicle_1=is_possible(vehicle_1["establishments"])
+        while not new_vehicle_1:
+            vehicle_1["establishments"] = vehicle_1["establishments"][:-1]
+            new_vehicle_1=is_possible(vehicle_1["establishments"])
+
+        new_vehicle_2=is_possible(vehicle_2["establishments"])
+        while not new_vehicle_2:
+            vehicle_2["establishments"] = vehicle_2["establishments"][:-1]
+            new_vehicle_2=is_possible(vehicle_2["establishments"])
+
+
+        child_1["vehicles"][vehicule_idx] = new_vehicle_1
+        child_2["vehicles"][vehicule_idx] = new_vehicle_2
+
+
+    return child_1, child_2 
 #4.2 d)
 def generate_population(population_size):
     solutions = []
     for i in range(population_size):
+        print(i)
         solutions.append(generate_random_solution())
     return solutions
 
@@ -317,7 +394,7 @@ def roulette_select(population):
 
 
 def mutate_solution(solution):
-    return solution
+    return get_neighbor_solution(solution)
 
 
 def genetic_algorithm(num_iterations, population_size, crossover_func, mutation_func, log=False):
@@ -325,6 +402,7 @@ def genetic_algorithm(num_iterations, population_size, crossover_func, mutation_
     
     best_solution = population[0] # Initial solution
     best_score = evaluate_solution(population[0])
+    print(f"Initial best score: {max(population,key=evaluate_solution)}")
     best_solution_generation = 0 # Generation on which the best solution was found
     
     generation_no = 0
@@ -334,7 +412,8 @@ def genetic_algorithm(num_iterations, population_size, crossover_func, mutation_
     while(num_iterations > 0):
         
         generation_no += 1
-        
+        print(f"Generation {generation_no}")
+
         tournment_winner_sol = random.choice(population)
         roulette_winner_sol = roulette_select(population)
         
@@ -359,7 +438,14 @@ def genetic_algorithm(num_iterations, population_size, crossover_func, mutation_
         else:
             num_iterations -= 1
         
-    print(f"  Final solution: {best_solution}, score: {best_score}")
+    print(f"  Final solution score: {best_score}")
     print(f"  Found on generation {best_solution_generation}")
     
     return best_solution
+
+print(establishments["Inspection Time"].mean())
+
+best_solution = genetic_algorithm(500, 50, midpoint_crossover, mutate_solution)
+
+
+
