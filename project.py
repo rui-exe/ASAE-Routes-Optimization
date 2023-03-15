@@ -85,7 +85,6 @@ def minutes_not_working(vehicle):
     return timedelta.total_seconds() / 60
 
 def evaluate_solution(solution):
-    #total_minutes_not_working = sum(map(lambda vehicle:minutes_not_working(vehicle),solution["vehicles"]))
     visited_establishments = num_establishments-len(solution["unvisited_establishments"])
     return visited_establishments
 
@@ -261,58 +260,37 @@ def get_sa_solution(num_iterations, log=False):
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 # Genetic Algorithms 
 
 # 4.2 c)
-def midpoint_crossover(solution_1, solution_2):
-    child_1 = copy.deepcopy(solution_1)
-    child_2 = copy.deepcopy(solution_2)
-    
-    for vehicule_idx in range(num_vehicles):
-        vehicle_1 = child_1["vehicles"][vehicule_idx]   
-        vehicle_2 = child_2["vehicles"][vehicule_idx] 
-        crossover_point = max(len(vehicle_1["establishments"]),len(vehicle_2["establishments"]))//2
-        temp = vehicle_1["establishments"][crossover_point:-1]
-        vehicle_1["establishments"][crossover_point:-1] = vehicle_2["establishments"][crossover_point:-1]
-        vehicle_2["establishments"][crossover_point:-1] = temp
+def lox_crossover(solution_1, solution_2):
+    # Perform crossover using the optimized crossover operator
+    children = [dict(),dict()]
+    for child_idx in range(2):
+        for i in range(len(solution_1)):
+            vehicle1 = solution_1["vehicles"][i]
+            vehicle2 = solution_2["vehicles"][i]
+            common_establishments = [establishment for establishment in vehicle1 if establishment in vehicle2]
+            non_common_establishments = [establishment for establishment in vehicle1 if establishment not in vehicle2]
+            non_common_establishments += [establishment for establishment in vehicle2 if establishment not in vehicle1]
+            vehicle_establishments = []
+            establishment = 1
+            random.shuffle(common_establishments)
+            random.shuffle(non_common_establishments)
 
-        new_vehicle_1=is_possible(vehicle_1["establishments"])
+            for establishment in common_establishments:
+                vehicle_establishments.append(establishment)
 
-        while not new_vehicle_1:
-            vehicle_1["establishments"] = vehicle_1["establishments"][:-2]+vehicle_1["establishments"][-1:]
-            new_vehicle_1=is_possible(vehicle_1["establishments"])
-
-
-        new_vehicle_2 =is_possible(vehicle_2["establishments"])
-        while not new_vehicle_2:
-            vehicle_2["establishments"] = vehicle_1["establishments"][:-2]+vehicle_1["establishments"][-1:]
-            new_vehicle_2=is_possible(vehicle_2["establishments"])
-        
+            for establishment in non_common_establishments:
+                vehicle_establishments.append(establishment)
 
 
-    return child_1, child_2 
+            new_vehicle = is_possible(vehicle_establishments)
+            if(new_vehicle):
+                children[child_idx]["vehicles"][i]=new_vehicle
+            
+    [child_1,child_2]=children
+    return (child_1,child_2)
 
 def randompoint_crossover(solution_1, solution_2):
     child_1 = copy.deepcopy(solution_1)
@@ -339,6 +317,10 @@ def randompoint_crossover(solution_1, solution_2):
 
         child_1["vehicles"][vehicule_idx] = new_vehicle_1
         child_2["vehicles"][vehicule_idx] = new_vehicle_2
+
+
+        
+
 
 
     return child_1, child_2 
@@ -445,7 +427,5 @@ def genetic_algorithm(num_iterations, population_size, crossover_func, mutation_
 
 print(establishments["Inspection Time"].mean())
 
-best_solution = genetic_algorithm(500, 50, midpoint_crossover, mutate_solution)
-
-
+best_solution = genetic_algorithm(500, 50, lox_crossover, mutate_solution)
 
