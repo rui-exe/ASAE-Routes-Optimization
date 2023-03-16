@@ -15,7 +15,7 @@ establishments = pd.read_csv(establishmentsFileName, converters=conv)
 
 
 #num_establishments = len(establishments) - 1
-num_establishments = 50
+num_establishments = 30
 
 num_vehicles = math.floor(0.1*num_establishments)
 max_hours = 8
@@ -30,13 +30,16 @@ def add_minutes(time, minutes):
     return (datetime.datetime.combine(datetime.datetime.today(), time) + datetime.timedelta(minutes=minutes)).time()
 
 def can_visit(vehicle,establishment):
-    current_establishment = vehicle["establishments"][-1]
-    current_time = vehicle["current_time"]
+    if(len(vehicle["establishments"])==0):
+        time_to_establishment = distances.loc['p_0'][f'p_{establishment}']
+    else:
+        current_establishment = vehicle["establishments"][-1]
+        time_to_establishment = distances.loc[f'p_{current_establishment}'][f'p_{establishment}']
 
-    time_to_establishment = distances.loc[f'p_{current_establishment}'][f'p_{establishment}']
     time_to_depot = distances.loc[f'p_{establishment}']['p_0']
     establishment_opening_hours = establishments.iloc[establishment]["Opening Hours"] # Get list with the working hours of the establishment
     inspection_duration = establishments.iloc[establishment]["Inspection Time"].item()
+    current_time = vehicle["current_time"]
 
 
     arriving_time = add_seconds(current_time,time_to_establishment) # Add distance to current time
@@ -50,7 +53,7 @@ def can_visit(vehicle,establishment):
         return False
     
 def generate_random_solution():
-    solution={"vehicles":[{"establishments":[0],
+    solution={"vehicles":[{"establishments":[],
                "current_time":datetime.time(9, 0),
               } for _ in range(0,num_vehicles)],
               "unvisited_establishments":list(range(1,num_establishments))}
@@ -71,9 +74,8 @@ def generate_random_solution():
 
     for vehicle in solution["vehicles"]:
         time_to_depot = distances.loc[f'p_{vehicle["establishments"][-1]}']['p_0']
-        vehicle["establishments"].append(0)
         vehicle["current_time"] = add_seconds(vehicle["current_time"],time_to_depot)
-
+        
     return solution
 
 def minutes_not_working(vehicle):
@@ -91,38 +93,38 @@ def evaluate_solution(solution):
 
 
 def is_possible(establishments):
-    vehicle={"establishments":[0],
+    vehicle={"establishments":[],
                "current_time":datetime.time(9, 0),
               } 
     
-    for establishment in establishments:
+    for idx,establishment in enumerate(establishments):
         end_of_inpection = can_visit(vehicle,establishment)
         if end_of_inpection:
             vehicle["establishments"].append(establishment)
             vehicle["current_time"] = end_of_inpection
         else:
-            return False
-        
-    time_to_depot = distances.loc[f'p_{vehicle["establishments"][-1]}']['p_0']
-    vehicle["establishments"].append(0)
-    vehicle["current_time"] = add_seconds(vehicle["current_time"],time_to_depot)
+            return (False,idx)
+
+    if vehicle["establishments"]:
+        time_to_depot = distances.loc[f'p_{vehicle["establishments"][-1]}']['p_0']
+        vehicle["current_time"] = add_seconds(vehicle["current_time"],time_to_depot)
     
-    return vehicle
+    return (True,vehicle)
 
 
 def change_two_establishments_in_vehicle(solution):
     neighbor = copy.deepcopy(solution)
     vehicle = random.randint(0,num_vehicles-1)
-    if len(neighbor["vehicles"][vehicle]["establishments"]) <= 2:
+    if len(neighbor["vehicles"][vehicle]["establishments"]) == 0:
         return solution
-    establishment_1 = random.randint(1,len(neighbor["vehicles"][vehicle]["establishments"])-2)
-    establishments_to_visit = list(range(1,len(neighbor["vehicles"][vehicle]["establishments"])-1))
+    establishment_1 = random.randint(0,len(neighbor["vehicles"][vehicle]["establishments"])-1)
+    establishments_to_visit = list(range(0,len(neighbor["vehicles"][vehicle]["establishments"])-1))
     random.shuffle(establishments_to_visit)
     for establishment_2 in establishments_to_visit:
         if establishment_1 != establishment_2:
             neighbor["vehicles"][vehicle]["establishments"][establishment_1],neighbor["vehicles"][vehicle]["establishments"][establishment_2] = neighbor["vehicles"][vehicle]["establishments"][establishment_2],neighbor["vehicles"][vehicle]["establishments"][establishment_1]
-            new_vehicle=is_possible(neighbor["vehicles"][vehicle]["establishments"])
-            if new_vehicle:
+            (is_vehicle_possible,new_vehicle)=is_possible(neighbor["vehicles"][vehicle]["establishments"])
+            if is_vehicle_possible:
                 neighbor["vehicles"][vehicle]=new_vehicle
                 return neighbor
             else:
@@ -133,7 +135,12 @@ def change_two_establishments_in_vehicle(solution):
 def change_random_establishment(solution):
     neighbor = copy.deepcopy(solution)
     vehicle = random.randint(0,num_vehicles-1)
-    establishment_1_index = random.randint(1,len(neighbor["vehicles"][vehicle]["establishments"])-2)
+    if len(neighbor["vehicles"][vehicle]["establishments"])>1:
+        establishment_1_index = random.randint(0,len(neighbor["vehicles"][vehicle]["establishments"])-1)
+    elif len(neighbor["vehicles"][vehicle]["establishments"])==1:
+        establishment_1_index = 0
+    else:
+        return neighbor
     establishment_to_mark_as_unvisited =  neighbor["vehicles"][vehicle]["establishments"][establishment_1_index]
     establishments_to_visit = copy.deepcopy(neighbor["unvisited_establishments"])
     random.shuffle(establishments_to_visit)
@@ -143,8 +150,8 @@ def change_random_establishment(solution):
         neighbor["unvisited_establishments"].append(establishment_to_mark_as_unvisited)
         neighbor["vehicles"][vehicle]["establishments"][establishment_1_index] = establishment_to_visit
 
-        new_vehicle=is_possible(neighbor["vehicles"][vehicle]["establishments"])
-        if new_vehicle:
+        (is_vehicle_possible,new_vehicle)=is_possible(neighbor["vehicles"][vehicle]["establishments"])
+        if is_vehicle_possible:
             neighbor["vehicles"][vehicle]=new_vehicle
             return neighbor
         else:
@@ -164,7 +171,12 @@ def calculate_current_time(vehicle):
 def remove_random_establishment(solution):
     neighbor = copy.deepcopy(solution)
     vehicle = random.randint(0,num_vehicles-1)
-    establishment_index = random.randint(1,len(neighbor["vehicles"][vehicle]["establishments"])-2)
+    if len(neighbor["vehicles"][vehicle]["establishments"])>1:
+        establishment_index = random.randint(0,len(neighbor["vehicles"][vehicle]["establishments"])-1)
+    elif len(neighbor["vehicles"][vehicle]["establishments"])==1:
+        establishment_index = 0
+    else:
+        return neighbor
     establishment_to_mark_as_unvisited =  neighbor["vehicles"][vehicle]["establishments"][establishment_index]
     neighbor["unvisited_establishments"].append(establishment_to_mark_as_unvisited)
     neighbor["vehicles"][vehicle]["establishments"].pop(establishment_index)
@@ -182,8 +194,8 @@ def add_random_establishment(solution):
         neighbor["unvisited_establishments"].remove(establishment_to_visit)
         neighbor["vehicles"][vehicle]["establishments"].append(establishment_to_visit)
 
-        new_vehicle=is_possible(neighbor["vehicles"][vehicle]["establishments"])
-        if new_vehicle:
+        (is_vehicle_possible,new_vehicle)=is_possible(neighbor["vehicles"][vehicle]["establishments"])
+        if is_vehicle_possible:
             neighbor["vehicles"][vehicle]=new_vehicle
             return neighbor
         else:
@@ -264,36 +276,38 @@ def get_sa_solution(num_iterations, log=False):
 
 # 4.2 c)
 def lox_crossover(solution_1, solution_2):
-    # Perform crossover using the optimized crossover operator
-    vehicles_1 = solution_1["vehicles"]
-    vehicles_2 = solution_2["vehicles"]
-    establishments_different_vehicle = map() #in solution 1 xor in solution 2
-    for (vehicle_1,vehicle_2) in zip(vehicles_1,vehicles_2):
-        for establishment in vehicle_1:
-            if establishment not in vehicle_2:
-                if establishment not in establishments_different_vehicle:
-                    establishments_different_vehicle[establishment]=False #establishment only in one of solutions
-                else:
-                    establishments_different_vehicle[establishment]=True #establishment in both solutuins
-
-        for establishment in vehicle_2:
-            if establishment not in vehicle_1:
-                if establishment not in establishments_different_vehicle:
-                    establishments_different_vehicle[establishment]=False
-                else:
-                    establishments_different_vehicle[establishment]=True
                 
-   
     children = [dict(),dict()]
     for child_idx in range(2):
-        for i in range(len(solution_1)):
-            vehicle1 = solution_1["vehicles"][i]
-            vehicle2 = solution_2["vehicles"][i]
-            common_establishments = [establishment for establishment in vehicle1 if establishment in vehicle2]
-            non_common_establishments = [establishment for establishment in vehicle1 if establishment not in vehicle2]
-            non_common_establishments += [establishment for establishment in vehicle2 if establishment not in vehicle1]
+        vehicles_1 = solution_1["vehicles"]
+        vehicles_2 = solution_2["vehicles"]
+        unvisited_establishments = list(set(solution_1["unvisited_establishments"]).intersection(set(solution_2["unvisited_establishments"])))
+
+        establishments_different_vehicle = dict() #establishment in solution 1 xor in solution 2 =>map[establishment]=False
+                                                #else map[establishment]=True
+        for (vehicle_1,vehicle_2) in zip(vehicles_1,vehicles_2):
+            for establishment in vehicle_1["establishments"]:
+                if establishment not in vehicle_2["establishments"]:
+                    if establishment not in establishments_different_vehicle:
+                        establishments_different_vehicle[establishment]=False #establishment only in one of the solutions
+                    else:
+                        establishments_different_vehicle[establishment]=True #establishment in both solutuins
+
+            for establishment in vehicle_2["establishments"]:
+                if establishment not in vehicle_1["establishments"]:
+                    if establishment not in establishments_different_vehicle:
+                        establishments_different_vehicle[establishment]=False
+                    else:
+                        establishments_different_vehicle[establishment]=True
+            children[child_idx]["vehicles"]=[]
+        
+        for vehicle_idx in range(num_vehicles):
+            vehicle1_establishments = vehicles_1[vehicle_idx]["establishments"]
+            vehicle2_establishments = vehicles_2[vehicle_idx]["establishments"]
+            common_establishments = [establishment for establishment in vehicle1_establishments if establishment in vehicle2_establishments]
+            non_common_establishments = [establishment for establishment in vehicle1_establishments if establishment not in vehicle2_establishments]
+            non_common_establishments += [establishment for establishment in vehicle2_establishments if establishment not in vehicle1_establishments]
             vehicle_establishments = []
-            establishment = 1
             random.shuffle(common_establishments)
             random.shuffle(non_common_establishments)
 
@@ -303,7 +317,7 @@ def lox_crossover(solution_1, solution_2):
             for establishment in non_common_establishments:
                 if establishment in establishments_different_vehicle:
                     if(establishments_different_vehicle[establishment]):
-                        if(random.random<0.5):
+                        if(random.random()<0.5):
                             vehicle_establishments.append(establishment)
                             del establishments_different_vehicle[establishment]
                         else:
@@ -313,45 +327,21 @@ def lox_crossover(solution_1, solution_2):
                         del establishments_different_vehicle[establishment]
 
 
-            new_vehicle = is_possible(vehicle_establishments)
-            if(new_vehicle):
-                children[child_idx]["vehicles"][i]=new_vehicle
+            (is_vehicle_possible,new_vehicle) = is_possible(vehicle_establishments)
+            while not is_vehicle_possible:
+                failed_vehicle_idx = new_vehicle
+                establishments_different_vehicle[vehicle_establishments[failed_vehicle_idx]]=False #Add it back to the map, it can now be in another vehicle
+                vehicle_establishments = vehicle_establishments[:failed_vehicle_idx] + vehicle_establishments[failed_vehicle_idx+1:]
+                (is_vehicle_possible,new_vehicle) = is_possible(vehicle_establishments)
             
+            children[child_idx]["vehicles"].append(new_vehicle)
+
+        children[child_idx]["unvisited_establishments"] = [establishment for establishment in establishments_different_vehicle] + unvisited_establishments
+            
+
     [child_1,child_2]=children
-    return (child_1,child_2)
+    return child_1,child_2
 
-def randompoint_crossover(solution_1, solution_2):
-    child_1 = copy.deepcopy(solution_1)
-    child_2 = copy.deepcopy(solution_2)
-    
-    for vehicule_idx in range(num_vehicles):
-        vehicle_1 = child_1["vehicles"][vehicule_idx]   
-        vehicle_2 = child_2["vehicles"][vehicule_idx] 
-        
-        crossover_point = random.randint(1,min(len(vehicle_1["establishments"]),len(vehicle_2["establishments"])-2))
-        vehicle_1["establishments"][crossover_point:] = vehicle_2["establishments"][crossover_point:]
-        vehicle_2["establishments"][crossover_point:] = vehicle_1["establishments"][crossover_point:]
-
-        new_vehicle_1=is_possible(vehicle_1["establishments"])
-        while not new_vehicle_1:
-            vehicle_1["establishments"] = vehicle_1["establishments"][:-1]
-            new_vehicle_1=is_possible(vehicle_1["establishments"])
-
-        new_vehicle_2=is_possible(vehicle_2["establishments"])
-        while not new_vehicle_2:
-            vehicle_2["establishments"] = vehicle_2["establishments"][:-1]
-            new_vehicle_2=is_possible(vehicle_2["establishments"])
-
-
-        child_1["vehicles"][vehicule_idx] = new_vehicle_1
-        child_2["vehicles"][vehicule_idx] = new_vehicle_2
-
-
-        
-
-
-
-    return child_1, child_2 
 #4.2 d)
 def generate_population(population_size):
     solutions = []
@@ -453,7 +443,22 @@ def genetic_algorithm(num_iterations, population_size, crossover_func, mutation_
     
     return best_solution
 
-print(establishments["Inspection Time"].mean())
+#print(establishments["Inspection Time"].mean())
 
 best_solution = genetic_algorithm(500, 50, lox_crossover, mutate_solution)
+print(best_solution) 
+"""
 
+ solution_1 = generate_random_solution()
+solution_2 = generate_random_solution()
+
+print(solution_1)
+print()
+print(solution_2)
+print()
+print()
+print()
+(child_1,child_2)= lox_crossover(solution_1,solution_2)
+print(child_1)
+print()
+print(child_2) """
