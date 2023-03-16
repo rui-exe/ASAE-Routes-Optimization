@@ -265,6 +265,25 @@ def get_sa_solution(num_iterations, log=False):
 # 4.2 c)
 def lox_crossover(solution_1, solution_2):
     # Perform crossover using the optimized crossover operator
+    vehicles_1 = solution_1["vehicles"]
+    vehicles_2 = solution_2["vehicles"]
+    establishments_different_vehicle = map() #in solution 1 xor in solution 2
+    for (vehicle_1,vehicle_2) in zip(vehicles_1,vehicles_2):
+        for establishment in vehicle_1:
+            if establishment not in vehicle_2:
+                if establishment not in establishments_different_vehicle:
+                    establishments_different_vehicle[establishment]=False #establishment only in one of solutions
+                else:
+                    establishments_different_vehicle[establishment]=True #establishment in both solutuins
+
+        for establishment in vehicle_2:
+            if establishment not in vehicle_1:
+                if establishment not in establishments_different_vehicle:
+                    establishments_different_vehicle[establishment]=False
+                else:
+                    establishments_different_vehicle[establishment]=True
+                
+   
     children = [dict(),dict()]
     for child_idx in range(2):
         for i in range(len(solution_1)):
@@ -282,7 +301,16 @@ def lox_crossover(solution_1, solution_2):
                 vehicle_establishments.append(establishment)
 
             for establishment in non_common_establishments:
-                vehicle_establishments.append(establishment)
+                if establishment in establishments_different_vehicle:
+                    if(establishments_different_vehicle[establishment]):
+                        if(random.random<0.5):
+                            vehicle_establishments.append(establishment)
+                            del establishments_different_vehicle[establishment]
+                        else:
+                            establishments_different_vehicle[establishment]=False
+                    else:
+                        vehicle_establishments.append(establishment)
+                        del establishments_different_vehicle[establishment]
 
 
             new_vehicle = is_possible(vehicle_establishments)
