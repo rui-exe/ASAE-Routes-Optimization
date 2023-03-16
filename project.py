@@ -56,7 +56,7 @@ def generate_random_solution():
     solution={"vehicles":[{"establishments":[],
                "current_time":datetime.time(9, 0),
               } for _ in range(0,num_vehicles)],
-              "unvisited_establishments":list(range(1,num_establishments))}
+              "unvisited_establishments":list(range(1,num_establishments+1))}
     
     establishments_shuffled = list(range(1,num_establishments))
     random.shuffle(establishments_shuffled)
@@ -276,71 +276,23 @@ def get_sa_solution(num_iterations, log=False):
 
 # 4.2 c)
 def lox_crossover(solution_1, solution_2):
-                
-    children = [dict(),dict()]
-    for child_idx in range(2):
-        vehicles_1 = solution_1["vehicles"]
-        vehicles_2 = solution_2["vehicles"]
-        unvisited_establishments = list(set(solution_1["unvisited_establishments"]).intersection(set(solution_2["unvisited_establishments"])))
-
-        establishments_different_vehicle = dict() #establishment in solution 1 xor in solution 2 =>map[establishment]=False
-                                                #else map[establishment]=True
-        for (vehicle_1,vehicle_2) in zip(vehicles_1,vehicles_2):
-            for establishment in vehicle_1["establishments"]:
-                if establishment not in vehicle_2["establishments"]:
-                    if establishment not in establishments_different_vehicle:
-                        establishments_different_vehicle[establishment]=False #establishment only in one of the solutions
-                    else:
-                        establishments_different_vehicle[establishment]=True #establishment in both solutuins
-
-            for establishment in vehicle_2["establishments"]:
-                if establishment not in vehicle_1["establishments"]:
-                    if establishment not in establishments_different_vehicle:
-                        establishments_different_vehicle[establishment]=False
-                    else:
-                        establishments_different_vehicle[establishment]=True
-            children[child_idx]["vehicles"]=[]
+    solution_1_establishments = []
+    solution_2_establishments = []
+    for vehicle in solution_1["vehicles"]: 
+        solution_1_establishments += vehicle["establishments"]
         
-        for vehicle_idx in range(num_vehicles):
-            vehicle1_establishments = vehicles_1[vehicle_idx]["establishments"]
-            vehicle2_establishments = vehicles_2[vehicle_idx]["establishments"]
-            common_establishments = [establishment for establishment in vehicle1_establishments if establishment in vehicle2_establishments]
-            non_common_establishments = [establishment for establishment in vehicle1_establishments if establishment not in vehicle2_establishments]
-            non_common_establishments += [establishment for establishment in vehicle2_establishments if establishment not in vehicle1_establishments]
-            vehicle_establishments = []
-            random.shuffle(common_establishments)
-            random.shuffle(non_common_establishments)
+    for vehicle in solution_2["vehicles"]:
+        solution_2_establishments += vehicle["establishments"]
 
-            for establishment in common_establishments:
-                vehicle_establishments.append(establishment)
-
-            for establishment in non_common_establishments:
-                if establishment in establishments_different_vehicle:
-                    if(establishments_different_vehicle[establishment]):
-                        if(random.random()<0.5):
-                            vehicle_establishments.append(establishment)
-                            del establishments_different_vehicle[establishment]
-                        else:
-                            establishments_different_vehicle[establishment]=False
-                    else:
-                        vehicle_establishments.append(establishment)
-                        del establishments_different_vehicle[establishment]
+    print(solution_1_establishments)
+    print(solution_2_establishments)
 
 
-            (is_vehicle_possible,new_vehicle) = is_possible(vehicle_establishments)
-            while not is_vehicle_possible:
-                failed_vehicle_idx = new_vehicle
-                establishments_different_vehicle[vehicle_establishments[failed_vehicle_idx]]=False #Add it back to the map, it can now be in another vehicle
-                vehicle_establishments = vehicle_establishments[:failed_vehicle_idx] + vehicle_establishments[failed_vehicle_idx+1:]
-                (is_vehicle_possible,new_vehicle) = is_possible(vehicle_establishments)
-            
-            children[child_idx]["vehicles"].append(new_vehicle)
-
-        children[child_idx]["unvisited_establishments"] = [establishment for establishment in establishments_different_vehicle] + unvisited_establishments
-            
-
-    [child_1,child_2]=children
-    return child_1,child_2
+s1 = generate_random_solution()
+print(s1)
+s2 = generate_random_solution()
+print(s2)
+lox_crossover(s1,s2)
 
 #4.2 d)
 def generate_population(population_size):
@@ -399,20 +351,21 @@ def mutate_solution(solution):
 
 def genetic_algorithm(num_iterations, population_size, crossover_func, mutation_func, log=False):
     population = generate_population(population_size)
-    
-    best_solution = population[0] # Initial solution
-    best_score = evaluate_solution(population[0])
-    print(f"Initial best score: {max(population,key=evaluate_solution)}")
+
+
+    best_solution = max(population,key=evaluate_solution) # Initial solution
+    best_score = evaluate_solution(best_solution)
+    print(f"Initial best solution: {best_solution}")
+    print(f"Initial best score: {best_score}")
     best_solution_generation = 0 # Generation on which the best solution was found
     
     generation_no = 0
     
-    print(f"Initial solution: {best_solution}, score: {best_score}")
     
     while(num_iterations > 0):
         
         generation_no += 1
-        print(f"Generation {generation_no}")
+        #print(f"Generation {generation_no}")
 
         tournment_winner_sol = random.choice(population)
         roulette_winner_sol = roulette_select(population)
@@ -445,8 +398,8 @@ def genetic_algorithm(num_iterations, population_size, crossover_func, mutation_
 
 #print(establishments["Inspection Time"].mean())
 
-best_solution = genetic_algorithm(500, 50, lox_crossover, mutate_solution)
-print(best_solution) 
+#best_solution = genetic_algorithm(500, 50, eax_crossover, mutate_solution)
+#print(best_solution) 
 """
 
  solution_1 = generate_random_solution()
