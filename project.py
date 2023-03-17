@@ -15,7 +15,7 @@ establishments = pd.read_csv(establishmentsFileName, converters=conv)
 
 
 #num_establishments = len(establishments) - 1
-num_establishments = 30
+num_establishments = 200
 
 num_vehicles = math.floor(0.1*num_establishments)
 max_hours = 8
@@ -43,11 +43,17 @@ def can_visit(vehicle,establishment):
 
 
     arriving_time = add_seconds(current_time,time_to_establishment) # Add distance to current time
+    while(not establishment_opening_hours[arriving_time.hour]):
+        if(arriving_time.hour+1>=17):
+            return False
+        arriving_time = datetime.time(arriving_time.hour+1, 0)
+
+
     end_of_inpection = add_minutes(arriving_time,inspection_duration) #Add inspection time to arriving time
     arrival_at_depot = add_seconds(end_of_inpection,time_to_depot) #Add distance to current time
 
     
-    if arrival_at_depot < END_OF_SHIFT and establishment_opening_hours[arriving_time.hour]:
+    if arrival_at_depot < END_OF_SHIFT:
         return end_of_inpection
     else:
         return False
@@ -278,21 +284,124 @@ def get_sa_solution(num_iterations, log=False):
 def lox_crossover(solution_1, solution_2):
     solution_1_establishments = []
     solution_2_establishments = []
+    child = dict()
+    unvisited_establishments = set([establishment for establishment in range(1,num_establishments+1)])
+
+
     for vehicle in solution_1["vehicles"]: 
         solution_1_establishments += vehicle["establishments"]
-        
+
     for vehicle in solution_2["vehicles"]:
         solution_2_establishments += vehicle["establishments"]
 
-    print(solution_1_establishments)
-    print(solution_2_establishments)
+    random_point1 = random.randint(0,len(solution_1_establishments))
+    random_point2 = random.randint(0,len(solution_1_establishments))
+    while(random_point2==random_point1):
+        random_point2 = random.randint(0,len(solution_1_establishments))
+
+    lower_point, upper_point = (random_point1, random_point2) if random_point1 < random_point2 else (random_point2, random_point1)
+    #print((lower_point,upper_point))
+    child_establishments = [0 for i in range(0,max(len(solution_1_establishments),len(solution_2_establishments)))]
 
 
-s1 = generate_random_solution()
+    solution_1_chromossomes = solution_1_establishments[lower_point:upper_point+1]
+    solution_2_chromossomes = [establishment for establishment in solution_2_establishments if establishment not in solution_1_chromossomes]
+    
+    child_establishments[lower_point:upper_point+1] = solution_1_chromossomes
+    child_establishments[:lower_point] = solution_2_chromossomes[:lower_point]
+
+    if(len(solution_1_establishments)<len(solution_2_establishments)):
+        child_establishments + [0 for i in range(len(solution_2_establishments)-len(solution_1_establishments))]
+
+    child_establishments[upper_point+1:] = solution_2_chromossomes[lower_point:]
+        
+    if(len(solution_1_establishments)>len(solution_2_establishments)):
+        child_establishments + [0 for i in range(len(solution_1_establishments)-len(solution_2_establishments))]
+        leftover_solution_1_chromossomes = [establishment for establishment in solution_1_establishments if establishment not in child_establishments]
+        child_establishments[len(solution_2_establishments)+1:] = leftover_solution_1_chromossomes
+
+
+
+    #seperate child into vehicles
+
+    lower_index = 0
+    upper_index = 0
+    child["vehicles"] = []
+    while upper_index < len(child_establishments) and len(child["vehicles"])<num_vehicles:
+        lower_index = upper_index
+        is_vehicle_possible, vehicle = is_possible(child_establishments[lower_index:upper_index])
+        last_possible_vehicle = vehicle
+        while upper_index < len(child_establishments):
+            last_possible_vehicle = vehicle
+            is_vehicle_possible, vehicle = is_possible(child_establishments[lower_index:upper_index])
+            if(not is_vehicle_possible):
+                break
+            else:
+                upper_index += 1
+
+        if(not is_vehicle_possible):
+            child["vehicles"].append(last_possible_vehicle)
+            unvisited_establishments = unvisited_establishments.difference(last_possible_vehicle["establishments"])
+
+        else:
+            child["vehicles"].append(vehicle)
+            unvisited_establishments = unvisited_establishments.difference(vehicle["establishments"])
+
+
+    if(len(child["vehicles"])<num_vehicles):
+        """
+        diff = num_vehicles-len(child["vehicles"])
+         print(f"{diff} vehicles added")
+        print(f"{len(unvisited_establishments)} unvisited establishments") """
+        unvisited_establishments_list = list(unvisited_establishments)
+        random.shuffle(unvisited_establishments_list)
+        lower_index=0
+        upper_index=0
+        while upper_index < len(unvisited_establishments_list) and len(child["vehicles"])<num_vehicles:
+            lower_index = upper_index
+            is_vehicle_possible, vehicle = is_possible(unvisited_establishments_list[lower_index:upper_index])
+            last_possible_vehicle = vehicle
+            while upper_index < len(unvisited_establishments_list):
+                last_possible_vehicle = vehicle
+                is_vehicle_possible, vehicle = is_possible(unvisited_establishments_list[lower_index:upper_index])
+                if(not is_vehicle_possible):
+                    break
+                else:
+                    upper_index += 1
+
+            if(not is_vehicle_possible):
+                child["vehicles"].append(last_possible_vehicle)
+                unvisited_establishments = unvisited_establishments.difference(last_possible_vehicle["establishments"])
+
+            else:
+                child["vehicles"].append(vehicle)
+                unvisited_establishments = unvisited_establishments.difference(vehicle["establishments"])
+    
+    """"
+        print(child)
+        print()
+        print()
+        print(f"{len(unvisited_establishments)} unvisited establishments")
+        print()
+        print() 
+    """
+
+    child["unvisited_establishments"] = list(unvisited_establishments)
+
+    return child
+
+
+    
+
+
+""" s1 = generate_random_solution()
 print(s1)
+print()
 s2 = generate_random_solution()
 print(s2)
-lox_crossover(s1,s2)
+
+print()
+print(lox_crossover(s1,s2)) """
 
 #4.2 d)
 def generate_population(population_size):
@@ -365,14 +474,19 @@ def genetic_algorithm(num_iterations, population_size, crossover_func, mutation_
     while(num_iterations > 0):
         
         generation_no += 1
-        #print(f"Generation {generation_no}")
-
-        tournment_winner_sol = random.choice(population)
+        print(f"Generation {generation_no}")
+        random_winner_sol = random.choice(population)
+        tournment_winner_sol = tournament_select(population,5)
         roulette_winner_sol = roulette_select(population)
         
-        (child1,child2) = crossover_func(tournment_winner_sol,roulette_winner_sol)
+        children = []
+        for i in range(8):
+            children.append(crossover_func(random_winner_sol,roulette_winner_sol))
+            children.append(crossover_func(random_winner_sol,tournment_winner_sol))
+            children.append(crossover_func(roulette_winner_sol,tournment_winner_sol))
+
         
-        for child in [child1,child2]:
+        for child in children:
             if(random.random()<0.03):
                 child = mutation_func(child)
             replace_least_fittest(population,child)
@@ -398,11 +512,12 @@ def genetic_algorithm(num_iterations, population_size, crossover_func, mutation_
 
 #print(establishments["Inspection Time"].mean())
 
-#best_solution = genetic_algorithm(500, 50, eax_crossover, mutate_solution)
+#best_solution = genetic_algorithm(100, 50, lox_crossover, mutate_solution)
 #print(best_solution) 
-"""
 
- solution_1 = generate_random_solution()
+
+""" 
+solution_1 = generate_random_solution()
 solution_2 = generate_random_solution()
 
 print(solution_1)
@@ -414,4 +529,6 @@ print()
 (child_1,child_2)= lox_crossover(solution_1,solution_2)
 print(child_1)
 print()
-print(child_2) """
+print(child_2)  """
+
+get_sa_solution(1000)
