@@ -10,7 +10,7 @@ C = 0.05
 ALFA = 1
 A = 150
 B = 1
-EPSILON = 0.1
+EPSILON = 1.001
 
 distancesFileName = "distances.csv"
 establishmentsFileName = "establishments.csv"
@@ -171,7 +171,7 @@ def is_possible_penalty(establishments):
         local_penalty,end_of_inspection = can_visit_penalty(vehicle,establishment)
         vehicle["establishments"].append(establishment)
         vehicle["current_time"] = end_of_inspection
-        print(end_of_inspection)
+        #print(end_of_inspection)
         penalty+=local_penalty 
 
 
@@ -182,7 +182,7 @@ def is_possible_penalty(establishments):
     return penalty,vehicle
 
 def penalty_establishments_schedule(solution):
-    return sum(map(lambda vehicle:is_possible_penalty(vehicle["establishments"][0]),solution["vehicles"]))
+    return sum(map(lambda vehicle:is_possible_penalty(vehicle["establishments"])[0],solution["vehicles"]))
 
 def penalty_overtime_vehicles(solution):
     penalty = 0 
@@ -218,13 +218,13 @@ def is_possible(establishments):
 def change_two_establishments_in_vehicle(solution):
     neighbor = copy.deepcopy(solution)
     vehicle = random.randint(0,num_vehicles-1)
-    if len(neighbor["vehicles"][vehicle]["establishments"]) == 0:
+    if len(neighbor["vehicles"][vehicle]["establishments"]) <= 1:
         return solution
     establishment_1 = random.randint(0,len(neighbor["vehicles"][vehicle]["establishments"])-1)
-    establishments_to_visit = list(range(0,len(neighbor["vehicles"][vehicle]["establishments"])-1))
-    establishment_2 = random.select(establishments_to_visit)
+    establishments_to_visit = list(range(0,len(neighbor["vehicles"][vehicle]["establishments"])))
+    establishment_2 = random.choice(establishments_to_visit)
     while establishment_2==establishment_1:
-        establishment_2 = random.select(establishments_to_visit)
+        establishment_2 = random.choice(establishments_to_visit)
 
     neighbor["vehicles"][vehicle]["establishments"][establishment_1],neighbor["vehicles"][vehicle]["establishments"][establishment_2] = neighbor["vehicles"][vehicle]["establishments"][establishment_2],neighbor["vehicles"][vehicle]["establishments"][establishment_1]
     (_,new_vehicle)=is_possible_penalty(neighbor["vehicles"][vehicle]["establishments"])
@@ -243,7 +243,7 @@ def change_random_establishment(solution):
         return neighbor
     establishment_to_mark_as_unvisited =  neighbor["vehicles"][vehicle]["establishments"][establishment_1_index]
     establishments_to_visit = copy.deepcopy(neighbor["unvisited_establishments"])
-    establishment_to_visit = random.shuffle(establishments_to_visit)
+    establishment_to_visit = random.choice(establishments_to_visit)
     
     neighbor["unvisited_establishments"].remove(establishment_to_visit)
     neighbor["unvisited_establishments"].append(establishment_to_mark_as_unvisited)
@@ -274,7 +274,7 @@ def remove_random_establishment(solution):
 def add_random_establishment(solution):
     neighbor = copy.deepcopy(solution)
     vehicle = random.randint(0,num_vehicles-1)
-    establishment_to_visit = random.select(neighbor["unvisited_establishments"])
+    establishment_to_visit = random.choice(neighbor["unvisited_establishments"])
     
     neighbor["unvisited_establishments"].remove(establishment_to_visit)
     neighbor["vehicles"][vehicle]["establishments"].append(establishment_to_visit)
@@ -333,18 +333,20 @@ def exchange_sublists_between_routes(solution, route_index, sublist_index, subli
 
 
 def get_neighbor_solution(solution):
-    neighbor_function = random.choice([add_random_establishment, remove_random_establishment, change_random_establishment, change_two_establishments_in_vehicle, two_opt_operator])
-    print(neighbor_function)
+    neighbor_function = random.choice([add_random_establishment, remove_random_establishment, change_random_establishment, change_two_establishments_in_vehicle])
+    #print(neighbor_function)
     return neighbor_function(solution)
     
 def get_hc_solution(num_iterations, log=False):
     iteration = 0
     best_solution = generate_random_solution()
-    best_score = evaluate_solution(best_solution)
-
+    best_score,h_func_result = evaluate_solution(best_solution)
+    if h_func_result>0:
+        best_score -= (func_c(iteration) * h_func_result)
     establishments_visited = num_establishments-len(best_solution["unvisited_establishments"])
 
     while iteration < num_iterations:
+        print(f"Iteration {iteration}")
         iteration += 1
         neighbor = get_neighbor_solution(best_solution)
         solution_utility,h_func_result = evaluate_solution(neighbor)
@@ -352,11 +354,14 @@ def get_hc_solution(num_iterations, log=False):
         if h_func_result>0:
             solution_utility -= (func_c(iteration) * h_func_result)
 
-
-        if solution_utility >= best_score:
-            best_score = evaluate_solution(best_solution)
+        if solution_utility > best_score:
+            best_score = solution_utility
             best_solution = neighbor
             iteration=0 
+            print(best_solution)
+            visited_establishments,penalty = evaluate_solution(neighbor)
+            print(f"Penalty:{penalty}")
+            print(visited_establishments)
 
         if log:
             (print(f"Solution:       {best_solution}, score: {best_score}"))
@@ -376,7 +381,9 @@ def get_sa_solution(num_iterations, log=False):
     iteration = 0
     temperature = 1000000
     solution = generate_random_solution() # Best solution after 'num_iterations' iterations without improvement
-    score = evaluate_solution(solution)
+    (score,penalty)=evaluate_solution(solution)
+    if penalty> 0:
+        score-=penalty*func_c(iteration)
 
     best_solution = copy.deepcopy(solution)
     best_score = score
@@ -386,9 +393,13 @@ def get_sa_solution(num_iterations, log=False):
     while iteration < num_iterations:
         temperature = temperature * 0.999  # Test with different cooling schedules
         iteration += 1
-
+        print(f"Iteration {iteration}")
         neighbor = get_neighbor_solution(solution)
-        neighbor_score=evaluate_solution(neighbor)
+
+        (neighbor_score,neighbor_penalty)=evaluate_solution(neighbor)
+        if neighbor_penalty> 0:
+            neighbor_score-=neighbor_penalty*func_c(iteration)
+
         delta_e = neighbor_score-score
         if delta_e>0 or np.exp(delta_e/temperature)>random.random():
             score = neighbor_score
@@ -694,8 +705,8 @@ print(evaluate_solution(tabu_search_solution)) """
  
 initial_solution = generate_random_solution()
 print(initial_solution)
-print(evaluate_solution(initial_solution))
-final = tabu_search(initial_solution, 600, 80)
+print(evaluate_solution(initial_solution)) 
+
+final = get_sa_solution(600)
 print(final)
 print(evaluate_solution(final))  
-
