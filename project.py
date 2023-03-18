@@ -510,6 +510,29 @@ def genetic_algorithm(num_iterations, population_size, crossover_func, mutation_
     
     return best_solution
 
+def tabu_search(initial_solution, max_iterations, tabu_list_size):
+    current_solution = initial_solution
+    best_solution = initial_solution
+    tabu_list = []
+    iteration = 0
+    
+    while iteration < max_iterations:
+        iteration += 1
+        best_neighbor = None
+        neighbor = get_neighbor_solution(current_solution)
+        if neighbor not in tabu_list:
+            if best_neighbor is None or evaluate_solution(neighbor) > evaluate_solution(best_neighbor):
+                best_neighbor = neighbor
+        if best_neighbor is None:
+            break
+        current_solution = best_neighbor
+        if evaluate_solution(current_solution) > evaluate_solution(best_solution):
+            best_solution = current_solution
+        tabu_list.append(best_neighbor)
+        if len(tabu_list) > tabu_list_size:
+            tabu_list.pop(0)
+    return best_solution
+
 #print(establishments["Inspection Time"].mean())
 
 #best_solution = genetic_algorithm(100, 50, lox_crossover, mutate_solution)
@@ -530,5 +553,7 @@ print()
 print(child_1)
 print()
 print(child_2)  """
-
-get_sa_solution(1000)
+initial_solution = generate_random_solution()
+print(evaluate_solution(initial_solution))
+tabu_search_solution = tabu_search(initial_solution, 1000, 200)
+print(evaluate_solution(tabu_search_solution))
