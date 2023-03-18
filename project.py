@@ -209,8 +209,58 @@ def add_random_establishment(solution):
             neighbor["vehicles"][vehicle]["establishments"].remove(establishment_to_visit)
     return solution
 
+def two_opt_operator(solution):
+    # Choose two consecutive sublists
+    neighbor = copy.deepcopy(solution)
+    route_index = random.randint(0, len(neighbor["vehicles"]) - 1)
+    route = neighbor["vehicles"][route_index]
+    while len(route["establishments"]) < 3:
+        route_index = random.randint(0, len(neighbor["vehicles"]) - 1)
+        route = neighbor["vehicles"][route_index]
+    sublist_index = random.randint(0, len(route["establishments"]) - 2)
+    sublist1 = route["establishments"][sublist_index:sublist_index + 2]
+
+    # Choose a sub-operator randomly
+    sub_operator = random.choice([exchange_sublists_within_route, exchange_sublists_between_routes])
+
+    # Apply the chosen sub-operator
+    sub_operator(neighbor, route_index, sublist_index, sublist1)
+    return neighbor
+
+def exchange_sublists_within_route(solution, route_index, sublist_index, sublist1):
+    # Choose another sublist in the same route
+    if len(solution["vehicles"][route_index]["establishments"]) < 5:
+        return solution
+    sublist2_index = random.randint(0, len(solution["vehicles"][route_index]["establishments"]) - 2)
+    while abs(sublist2_index - sublist_index) <= 1:
+        sublist2_index = random.randint(0, len(solution["vehicles"][route_index]["establishments"]) - 2)
+    sublist2 = solution["vehicles"][route_index]["establishments"][sublist2_index:sublist2_index + 2]
+
+    # Exchange the two sublists
+    solution["vehicles"][route_index]["establishments"][sublist_index:sublist_index + 2] = sublist2
+    solution["vehicles"][route_index]["establishments"][sublist2_index:sublist2_index + 2] = sublist1
+    return solution
+
+def exchange_sublists_between_routes(solution, route_index, sublist_index, sublist1):
+    # Choose another route
+    route2_index = random.randint(0, len(solution["vehicles"]) - 1)
+    while route2_index == route_index or len(solution["vehicles"][route2_index]["establishments"]) < 2:
+        route2_index = random.randint(0, len(solution["vehicles"]) - 1)
+    route2 = solution["vehicles"][route2_index]
+
+    # Choose a sublist in the other route
+    sublist2_index = random.randint(0, len(route2["establishments"]) - 2)
+    sublist2 = route2["establishments"][sublist2_index:sublist2_index + 2]
+
+    # Exchange the two sublists
+    solution["vehicles"][route_index]["establishments"][sublist_index:sublist_index + 2] = sublist2
+    route2["establishments"][sublist2_index:sublist2_index + 2] = sublist1
+    return solution
+
+
 def get_neighbor_solution(solution):
-    neighbor_function = random.choice([change_two_establishments_in_vehicle,remove_random_establishment,change_random_establishment,add_random_establishment])
+    neighbor_function = random.choice([add_random_establishment, remove_random_establishment, change_random_establishment, change_two_establishments_in_vehicle, two_opt_operator])
+    print(neighbor_function)
     return neighbor_function(solution)
     
 def get_hc_solution(num_iterations, log=False):
@@ -517,6 +567,7 @@ def tabu_search(initial_solution, max_iterations, tabu_list_size):
     iteration = 0
     
     while iteration < max_iterations:
+        print(f"Iteration {iteration}")
         iteration += 1
         best_neighbor = None
         neighbor = get_neighbor_solution(current_solution)
@@ -524,6 +575,7 @@ def tabu_search(initial_solution, max_iterations, tabu_list_size):
             if best_neighbor is None or evaluate_solution(neighbor) > evaluate_solution(best_neighbor):
                 best_neighbor = neighbor
         if best_neighbor is None:
+            print("No neighbor found")
             break
         current_solution = best_neighbor
         if evaluate_solution(current_solution) > evaluate_solution(best_solution):
@@ -553,7 +605,12 @@ print()
 print(child_1)
 print()
 print(child_2)  """
+
+""" 
 initial_solution = generate_random_solution()
+print(initial_solution)
 print(evaluate_solution(initial_solution))
-tabu_search_solution = tabu_search(initial_solution, 1000, 200)
-print(evaluate_solution(tabu_search_solution))
+final = tabu_search(initial_solution, 600, 80)
+print(final)
+print(evaluate_solution(final))  
+"""
