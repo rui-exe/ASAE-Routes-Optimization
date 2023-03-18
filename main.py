@@ -2,8 +2,9 @@ import datetime
 import pandas as pd
 import ast
 import math
-from utils import init_variables
-from simulated_annealing import get_sa_solution
+from utils import init_variables,is_legal
+from simulated_annealing import simulated_annealing
+from hill_climbing import get_hc_solution
 
 distancesFileName = "distances.csv"
 establishmentsFileName = "establishments.csv"
@@ -15,7 +16,7 @@ distances = pd.read_csv(distancesFileName,index_col=0)
 establishments = pd.read_csv(establishmentsFileName, converters=conv)
 
 
-num_establishments = 30
+num_establishments = 200
 
 num_vehicles = math.floor(0.1*num_establishments)
 
@@ -25,7 +26,9 @@ init_variables(distances, establishments, num_establishments, num_vehicles, END_
 
 init_time = datetime.datetime.now()
 
-print(get_sa_solution(200))
+solution = simulated_annealing(0,1000)
+print(is_legal(solution))
+print(solution)
 
 
 final_time = datetime.datetime.now()

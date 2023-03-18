@@ -4,17 +4,13 @@ import copy
 from collections import Counter
 from functools import reduce
 
-C = 0.05
-ALFA = 1
-A = 150
-B = 1
-EPSILON = 1.001
-
 distances = None
 establishments = None
 num_establishments = None
 num_vehicles = None
 END_OF_SHIFT = None
+
+average_time_spent_to_inspect = None
 
 def init_variables(distances_main, establishments_main, num_establishments_main, num_vehicles_main, END_OF_SHIFT_MAIN):
     global distances
@@ -22,11 +18,16 @@ def init_variables(distances_main, establishments_main, num_establishments_main,
     global num_establishments
     global num_vehicles
     global END_OF_SHIFT
+    global average_time_spent_to_inspect
     distances = distances_main
     establishments = establishments_main
     num_establishments = num_establishments_main
     num_vehicles = num_vehicles_main
     END_OF_SHIFT = END_OF_SHIFT_MAIN
+    average_traveling_between_establishments = (distances.mean().mean())/60
+    average_inspection_time = establishments["Inspection Time"].mean()
+    average_time_spent_to_inspect = 20
+
 
 
 
@@ -127,16 +128,13 @@ def is_possible(establishments):
     
     return (True,vehicle)
 
-def func_theta(penalty_func,solution):
-    return A*(1-1/(EPSILON**penalty_func(solution))) + B
 
 def evaluate_solution_with_penalty(solution):
-    print(solution)
     visited_establishments = num_establishments-len(solution["unvisited_establishments"])
     penalty = 0
 
     for penalty_func in [penalty_repeated_establishments,penalty_establishments_schedule,penalty_overtime_vehicles]:
-        penalty+=func_theta(penalty_func,solution)
+        penalty+=penalty_func(solution)
 
     return visited_establishments,penalty
 
@@ -149,7 +147,7 @@ def penalty_repeated_establishments(solution):
     for establishment in unique_establishments:
         times_repeated = counts[establishment]-1
         if(times_repeated>0):
-            penalty+=times_repeated**3
+            penalty+=times_repeated
     return penalty
 
 def overtime(time):
@@ -211,5 +209,8 @@ def penalty_overtime_vehicles(solution):
     for vehicle in solution["vehicles"]:
         extra_minutes = overtime(vehicle["current_time"])
         if(extra_minutes>0):
-            penalty+=(extra_minutes/20)
+            penalty+=(extra_minutes/average_time_spent_to_inspect)
     return penalty
+
+def is_legal(solution):
+    return all(map(lambda vehicle:is_possible(vehicle["establishments"]),solution["vehicles"])) and evaluate_solution(solution) == num_establishments - len(solution["unvisited_establishments"])
