@@ -2,7 +2,7 @@ import datetime
 import pandas as pd
 import ast
 import math
-from utils import init_variables,is_legal
+from utils import init_variables,is_legal,evaluate_solution
 from simulated_annealing import simulated_annealing
 from hill_climbing import get_hc_solution
 
@@ -26,9 +26,10 @@ init_variables(distances, establishments, num_establishments, num_vehicles, END_
 
 init_time = datetime.datetime.now()
 
-solution = simulated_annealing(0,1000)
+solution = simulated_annealing(0.001,0.1,1000)
 print(is_legal(solution))
 print(solution)
+print(evaluate_solution(solution))
 
 
 final_time = datetime.datetime.now()

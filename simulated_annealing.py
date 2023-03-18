@@ -40,7 +40,7 @@ from neighborhood_with_unfeasible import get_neighbor_solution
     print(f"Final Solution: {best_solution}, score: {best_score}")
     return best_solution """
 
-def generate_t0(current_solution,n_attampts,alfa):
+def generate_t0(current_solution,n_attempts,alfa):
 
     # define the number of attempts
     current_solution_score, penalty = utils.evaluate_solution_with_penalty(current_solution)
@@ -49,7 +49,8 @@ def generate_t0(current_solution,n_attampts,alfa):
     # calculate the average absolute difference in the objective function value between a solution and its neighboring solutions
     delta_c_values = []
 
-    for i in range(n_attampts):
+    for i in range(n_attempts):
+        print(f"Attempt {i}")
         # generate a neighboring solution
         neighbor = get_neighbor_solution(current_solution)
 
@@ -67,38 +68,58 @@ def generate_t0(current_solution,n_attampts,alfa):
 
     return (delta_c_average + 3 * delta_c_stddev) / math.log(1 / alfa)
 
-def simulated_annealing(tf, max_iter, a=2, f=1/3):
+REHEAT_MAX = 5
+MARKOV_CHAIN_WITHOUT_IMPROVEMENT_TRESHOLD = 500
+K_MAX = 30
+def simulated_annealing(tf, stable_temperature, max_iter, a=2, f=1/3):
     solution = utils.generate_random_solution()
     score,_ = utils.evaluate_solution_with_penalty(solution)
     best_solution = copy.deepcopy(solution)
     best_score = score
 
-    t0 = generate_t0(solution,1000,0.9)
-    k = 0
-    t0 = (delta_c + 3 * sigma_delta_c) / math.log(1 / alpha_0)
+    t0 = 100000000
+    temp = t0
+    reheat=0
+    while reheat < REHEAT_MAX: #Reheat
+        current_solution = solution
+        i = 0
+        score,_ = utils.evaluate_solution_with_penalty(solution)
+        markov_chain_number = 0
+        chains_without_update = 0 #Markov chains without update
+        while ((i < max_iter or chains_without_update < MARKOV_CHAIN_WITHOUT_IMPROVEMENT_TRESHOLD) and markov_chain_number < K_MAX): #Stopping criteria
 
-    while k < max_iter and t > tf:
-        # Generate a new candidate state
-        neighbor = get_neighbor_solution(solution)
+            neighbor = get_neighbor_solution(solution)
 
-        neighbor_score_without_penalty,penalty = utils.evaluate_solution_with_penalty(neighbor)
-        neighbor_score_with_penalty = neighbor_score_without_penalty - penalty
+            neighbor_score_without_penalty,penalty = utils.evaluate_solution_with_penalty(neighbor)
+            neighbor_score_with_penalty = neighbor_score_without_penalty - penalty
 
-        # Determine whether to accept the candidate state
-        delta_energy = neighbor_score_with_penalty - score
-        if delta_energy>0 or np.exp(delta_energy/t)>random.random():
-            score = neighbor_score_with_penalty
-            solution = neighbor 
 
-            if(neighbor_score_without_penalty>best_score and penalty==0):
-                print(f"Current score: {neighbor_score_without_penalty}")
-                best_score=neighbor_score_without_penalty
-                best_solution=solution
-        # Update the temperature
-        k += 1
-        P = math.log(math.log(t0/tf)/math.log(a))
-        Q = math.log(1/f)
-        b = P/Q
-        alpha = math.exp(-1/((k/t0)**b))
-        t = t0 * alpha
+            utility_diff = neighbor_score_with_penalty-score
+            prob = min (utility_diff/temp, 700)
+            if (random.random() <= math.exp(prob)): #acceptance condition
+                current_solution = neighbor
+                score = neighbor_score_with_penalty
+            if i >= max_iter:
+                if utility_diff > 0:
+                    chains_without_update = 0
+                else:
+                    chains_without_update += 1
+            markov_chain_number += 1
+            #########Cooling schedule#############
+            P = math.log(math.log(t0/tf)/math.log(a))
+            Q = math.log(1/f)
+            b = P/Q
+            alpha = math.exp(-1/((i/t0)**b))
+            if i > stable_temperature:
+                temp = t0 * alpha
+                print(temp)
+            elif i > tf:
+                temp = 0
+            if score > best_score and penalty==0: #Updates the best solution
+                print(f"New best score:{best_score}")
+                best_score = score
+                best_solution = current_solution
+            i += 1
+        reheat += 1
+        temp = t0
     return best_solution
