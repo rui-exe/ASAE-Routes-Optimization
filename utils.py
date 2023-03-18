@@ -1,10 +1,14 @@
-import numpy as np
-import copy, random, math
+import random
 import datetime
-import pandas as pd
-import ast
+import copy
+from collections import Counter
+from functools import reduce
 
-
+C = 0.05
+ALFA = 1
+A = 150
+B = 1
+EPSILON = 1.001
 
 distances = None
 establishments = None
@@ -23,6 +27,7 @@ def init_variables(distances_main, establishments_main, num_establishments_main,
     num_establishments = num_establishments_main
     num_vehicles = num_vehicles_main
     END_OF_SHIFT = END_OF_SHIFT_MAIN
+
 
 
     
@@ -121,3 +126,90 @@ def is_possible(establishments):
         vehicle["current_time"] = add_seconds(vehicle["current_time"],time_to_depot)
     
     return (True,vehicle)
+
+def func_theta(penalty_func,solution):
+    return A*(1-1/(EPSILON**penalty_func(solution))) + B
+
+def evaluate_solution_with_penalty(solution):
+    print(solution)
+    visited_establishments = num_establishments-len(solution["unvisited_establishments"])
+    penalty = 0
+
+    for penalty_func in [penalty_repeated_establishments,penalty_establishments_schedule,penalty_overtime_vehicles]:
+        penalty+=func_theta(penalty_func,solution)
+
+    return visited_establishments,penalty
+
+
+def penalty_repeated_establishments(solution):
+    penalty = 0
+    all_establishments = reduce(lambda current_establishments,other_vehicle:current_establishments+other_vehicle["establishments"],solution["vehicles"],[])
+    counts = Counter(all_establishments)
+    unique_establishments = set(all_establishments)
+    for establishment in unique_establishments:
+        times_repeated = counts[establishment]-1
+        if(times_repeated>0):
+            penalty+=times_repeated**3
+    return penalty
+
+def overtime(time):
+    datetime_reach_depot = datetime.datetime.combine(datetime.datetime.today(), time)
+    datetime_1700 = datetime.datetime.combine(datetime.datetime.today(), END_OF_SHIFT)
+    time_diff = datetime_reach_depot - datetime_1700
+    return time_diff.total_seconds()/60
+
+
+def can_visit_penalty(vehicle,establishment):
+    if(len(vehicle["establishments"])==0):
+        time_to_establishment = distances.loc['p_0'][f'p_{establishment}']
+    else:
+        current_establishment = vehicle["establishments"][-1]
+        time_to_establishment = distances.loc[f'p_{current_establishment}'][f'p_{establishment}']
+
+    establishment_opening_hours = establishments.iloc[establishment]["Opening Hours"] # Get list with the working hours of the establishment
+    inspection_duration = establishments.iloc[establishment]["Inspection Time"].item()
+    current_time = vehicle["current_time"]
+
+
+    arriving_time = add_seconds(current_time,time_to_establishment) # Add distance to current time
+    inspection_start = copy.deepcopy(arriving_time)
+    while(not establishment_opening_hours[inspection_start.hour]):
+        if(inspection_start.hour+1>=17):
+            return 1,arriving_time
+        inspection_start = datetime.time(inspection_start.hour+1, 0)
+
+
+    end_of_inpection = add_minutes(inspection_start,inspection_duration) #Add inspection time to arriving time
+
+    return 0,end_of_inpection
+
+def is_possible_penalty(establishments):
+    vehicle={"establishments":[],
+               "current_time":datetime.time(9, 0),
+              } 
+    
+    penalty=0
+
+    for establishment in establishments:
+        local_penalty,end_of_inspection = can_visit_penalty(vehicle,establishment)
+        vehicle["establishments"].append(establishment)
+        vehicle["current_time"] = end_of_inspection
+        penalty+=local_penalty 
+
+
+    if vehicle["establishments"]:
+        time_to_depot = distances.loc[f'p_{vehicle["establishments"][-1]}']['p_0']
+        vehicle["current_time"] = add_seconds(vehicle["current_time"],time_to_depot)
+    
+    return penalty,vehicle
+
+def penalty_establishments_schedule(solution):
+    return sum(map(lambda vehicle:is_possible_penalty(vehicle["establishments"])[0],solution["vehicles"]))
+
+def penalty_overtime_vehicles(solution):
+    penalty = 0 
+    for vehicle in solution["vehicles"]:
+        extra_minutes = overtime(vehicle["current_time"])
+        if(extra_minutes>0):
+            penalty+=(extra_minutes/20)
+    return penalty

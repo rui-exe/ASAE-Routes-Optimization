@@ -1,9 +1,8 @@
 import numpy as np
-import copy, random, math
+import random
 import datetime
-import pandas as pd
-import ast
-from neighbourhood_genetic import *
+import utils
+from neighborhood_genetic import get_neighbor_solution
 
 # Genetic Algorithms 
 
@@ -12,7 +11,7 @@ def lox_crossover(solution_1, solution_2):
     solution_1_establishments = []
     solution_2_establishments = []
     child = dict()
-    unvisited_establishments = set([establishment for establishment in range(1,num_establishments+1)])
+    unvisited_establishments = set([establishment for establishment in range(1,utils.num_establishments+1)])
 
 
     for vehicle in solution_1["vehicles"]: 
@@ -54,13 +53,13 @@ def lox_crossover(solution_1, solution_2):
     lower_index = 0
     upper_index = 0
     child["vehicles"] = []
-    while upper_index < len(child_establishments) and len(child["vehicles"])<num_vehicles:
+    while upper_index < len(child_establishments) and len(child["vehicles"])<utils.num_vehicles:
         lower_index = upper_index
-        is_vehicle_possible, vehicle = is_possible(child_establishments[lower_index:upper_index])
+        is_vehicle_possible, vehicle = utils.is_possible(child_establishments[lower_index:upper_index])
         last_possible_vehicle = vehicle
         while upper_index < len(child_establishments):
             last_possible_vehicle = vehicle
-            is_vehicle_possible, vehicle = is_possible(child_establishments[lower_index:upper_index])
+            is_vehicle_possible, vehicle = utils.is_possible(child_establishments[lower_index:upper_index])
             if(not is_vehicle_possible):
                 break
             else:
@@ -75,7 +74,7 @@ def lox_crossover(solution_1, solution_2):
             unvisited_establishments = unvisited_establishments.difference(vehicle["establishments"])
 
 
-    if(len(child["vehicles"])<num_vehicles):
+    if(len(child["vehicles"])<utils.num_vehicles):
         """
         diff = num_vehicles-len(child["vehicles"])
          print(f"{diff} vehicles added")
@@ -84,13 +83,13 @@ def lox_crossover(solution_1, solution_2):
         random.shuffle(unvisited_establishments_list)
         lower_index=0
         upper_index=0
-        while upper_index < len(unvisited_establishments_list) and len(child["vehicles"])<num_vehicles:
+        while upper_index < len(unvisited_establishments_list) and len(child["vehicles"])<utils.num_vehicles:
             lower_index = upper_index
-            is_vehicle_possible, vehicle = is_possible(unvisited_establishments_list[lower_index:upper_index])
+            is_vehicle_possible, vehicle = utils.is_possible(unvisited_establishments_list[lower_index:upper_index])
             last_possible_vehicle = vehicle
             while upper_index < len(unvisited_establishments_list):
                 last_possible_vehicle = vehicle
-                is_vehicle_possible, vehicle = is_possible(unvisited_establishments_list[lower_index:upper_index])
+                is_vehicle_possible, vehicle = utils.is_possible(unvisited_establishments_list[lower_index:upper_index])
                 if(not is_vehicle_possible):
                     break
                 else:
@@ -129,7 +128,7 @@ def populate_vehicle(univisited_establishments):
                "current_time":datetime.time(9, 0),
               }
     for establishment in univisited_establishments:
-        end_of_inspection = can_visit(vehicle,establishment)
+        end_of_inspection = utils.can_visit(vehicle,establishment)
         if end_of_inspection:
             vehicle["establishments"].append(establishment)
             vehicle["current_time"] = end_of_inspection
@@ -143,14 +142,14 @@ def populate_vehicle(univisited_establishments):
 def populate_solution(solution_1_establishments):
     solution = {"vehicles":[{"establishments":[],
                "current_time":datetime.time(9, 0),
-              } for _ in range(0,num_vehicles)],
-              "unvisited_establishments":list(range(1,num_establishments+1))}
+              } for _ in range(0,utils.num_vehicles)],
+              "unvisited_establishments":list(range(1,utils.num_establishments+1))}
 
 
     for establishment in solution_1_establishments:
-        vehicles_to_check = list(range(0,num_vehicles))
+        vehicles_to_check = list(range(0,utils.num_vehicles))
         for vehicle_to_check in vehicles_to_check:
-            end_of_inspection = can_visit(solution["vehicles"][vehicle_to_check],establishment)
+            end_of_inspection = utils.can_visit(solution["vehicles"][vehicle_to_check],establishment)
             if end_of_inspection:
                 solution["vehicles"][vehicle_to_check]["establishments"].append(establishment)
                 solution["unvisited_establishments"].remove(establishment)
@@ -159,8 +158,8 @@ def populate_solution(solution_1_establishments):
     for vehicle in solution["vehicles"]:
         if vehicle["establishments"] == []:
             vehicle, solution["unvisited_establishments"] = populate_vehicle(solution["unvisited_establishments"])
-        time_to_depot = distances.loc[f'p_{vehicle["establishments"][-1]}']['p_0']
-        vehicle["current_time"] = add_seconds(vehicle["current_time"],time_to_depot)
+        time_to_depot = utils.distances.loc[f'p_{vehicle["establishments"][-1]}']['p_0']
+        vehicle["current_time"] = utils.add_seconds(vehicle["current_time"],time_to_depot)
 
     return solution
 
@@ -243,23 +242,23 @@ def generate_population(population_size):
     solutions = []
     for i in range(population_size):
         print(i)
-        solutions.append(generate_random_solution())
+        solutions.append(utils.generate_random_solution())
     return solutions
 
 def print_population(population):
     solutions = []
     for i in range(len(population)):
-        print(f"Solution {i}: {population[i]}, {evaluate_solution(population[i])}")
+        print(f"Solution {i}: {population[i]}, {utils.evaluate_solution(population[i])}")
     
 def tournament_select(population, tournament_size):
     competing_elements = [population[index] for index in np.random.choice(len(population), tournament_size)]
-    return max(competing_elements,key=evaluate_solution)
+    return max(competing_elements,key=utils.evaluate_solution)
 
 def get_greatest_fit(population):
     best_solution = population[0]
-    best_score = evaluate_solution(population[0])
+    best_score = utils.evaluate_solution(population[0])
     for i in range(1, len(population)):
-        score = evaluate_solution(population[i])
+        score = utils.evaluate_solution(population[i])
         if score > best_score:
             best_score = score
             best_solution = population[i]
@@ -267,26 +266,26 @@ def get_greatest_fit(population):
 
 def replace_least_fittest(population, offspring):
     least_fittest_index = 0
-    least_fittest_value = evaluate_solution(population[0])
+    least_fittest_value = utils.evaluate_solution(population[0])
     for i in range(1, len(population)):
-        score = evaluate_solution(population[i])
+        score = utils.evaluate_solution(population[i])
         if score < least_fittest_value:
             least_fittest_value = score
             least_fittest_index = i
     population[least_fittest_index] = offspring
 
 def roulette_select(population):
-    worst_solution = min(evaluate_solution(solution) for solution in population) 
-    total = sum(evaluate_solution(solution)-worst_solution+1 for solution in population)   
+    worst_solution = min(utils.evaluate_solution(solution) for solution in population) 
+    total = sum(utils.evaluate_solution(solution)-worst_solution+1 for solution in population)   
     random_number = random.random()
     current_percentage=0
     for solution in population:
         lower_bound = current_percentage
-        upper_bound = current_percentage+(evaluate_solution(solution)-worst_solution+1)/total
+        upper_bound = current_percentage+(utils.evaluate_solution(solution)-worst_solution+1)/total
         if random_number>=lower_bound and random_number<=upper_bound:
             return solution
         else:
-            current_percentage+=(evaluate_solution(solution)-worst_solution+1)/total
+            current_percentage+=(utils.evaluate_solution(solution)-worst_solution+1)/total
 
 
 def mutate_solution(solution):
@@ -297,8 +296,8 @@ def genetic_algorithm(num_iterations, population_size, crossover_func, mutation_
     population = generate_population(population_size)
 
 
-    best_solution = max(population,key=evaluate_solution) # Initial solution
-    best_score = evaluate_solution(best_solution)
+    best_solution = max(population,key=utils.evaluate_solution) # Initial solution
+    best_score = utils.evaluate_solution(best_solution)
     print(f"Initial best solution: {best_solution}")
     print(f"Initial best score: {best_score}")
     best_solution_generation = 0 # Generation on which the best solution was found
@@ -309,7 +308,7 @@ def genetic_algorithm(num_iterations, population_size, crossover_func, mutation_
     while(num_iterations > 0):
         
         generation_no += 1
-        print(f"Generation {generation_no}")
+        #print(f"Generation {generation_no}")
         random_winner_sol = random.choice(population)
         tournment_winner_sol = tournament_select(population,5)
         roulette_winner_sol = roulette_select(population)
