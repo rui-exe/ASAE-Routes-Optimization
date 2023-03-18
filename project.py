@@ -108,14 +108,14 @@ def func_c(iteration):
 def func_theta(penalty_func,solution):
     return A*(1-1/(EPSILON**penalty_func(solution))) + B
 
-def evaluate_solution(solution):
+def evaluate_solution(solution,iteration):
     visited_establishments = num_establishments-len(solution["unvisited_establishments"])
     h_func_result = 0
 
     for penalty_func in [penalty_repeated_establishments,penalty_establishments_schedule,penalty_overtime_vehicles]:
         h_func_result+=func_theta(penalty_func,solution)
 
-    return visited_establishments,h_func_result
+    return visited_establishments - h_func_result*func_c(iteration)
 
 
 def penalty_repeated_establishments(solution):
@@ -333,34 +333,28 @@ def exchange_sublists_between_routes(solution, route_index, sublist_index, subli
 
 
 def get_neighbor_solution(solution):
-    neighbor_function = random.choice([add_random_establishment, remove_random_establishment, change_random_establishment, change_two_establishments_in_vehicle])
+    neighbor_function = random.choice([add_random_establishment, remove_random_establishment, change_random_establishment, change_two_establishments_in_vehicle,two_opt_operator])
     #print(neighbor_function)
     return neighbor_function(solution)
     
 def get_hc_solution(num_iterations, log=False):
     iteration = 0
     best_solution = generate_random_solution()
-    best_score,h_func_result = evaluate_solution(best_solution)
-    if h_func_result>0:
-        best_score -= (func_c(iteration) * h_func_result)
+    best_score = evaluate_solution(best_solution,1)
     establishments_visited = num_establishments-len(best_solution["unvisited_establishments"])
 
     while iteration < num_iterations:
         print(f"Iteration {iteration}")
         iteration += 1
         neighbor = get_neighbor_solution(best_solution)
-        solution_utility,h_func_result = evaluate_solution(neighbor)
-
-        if h_func_result>0:
-            solution_utility -= (func_c(iteration) * h_func_result)
+        solution_utility = evaluate_solution(neighbor,iteration)
 
         if solution_utility > best_score:
             best_score = solution_utility
             best_solution = neighbor
             iteration=0 
             print(best_solution)
-            visited_establishments,penalty = evaluate_solution(neighbor)
-            print(f"Penalty:{penalty}")
+            visited_establishments = evaluate_solution(neighbor,iteration)
             print(visited_establishments)
 
         if log:
@@ -381,9 +375,8 @@ def get_sa_solution(num_iterations, log=False):
     iteration = 0
     temperature = 1000000
     solution = generate_random_solution() # Best solution after 'num_iterations' iterations without improvement
-    (score,penalty)=evaluate_solution(solution)
-    if penalty> 0:
-        score-=penalty*func_c(iteration)
+    score=evaluate_solution(solution,1)
+
 
     best_solution = copy.deepcopy(solution)
     best_score = score
@@ -396,9 +389,8 @@ def get_sa_solution(num_iterations, log=False):
         print(f"Iteration {iteration}")
         neighbor = get_neighbor_solution(solution)
 
-        (neighbor_score,neighbor_penalty)=evaluate_solution(neighbor)
-        if neighbor_penalty> 0:
-            neighbor_score-=neighbor_penalty*func_c(iteration)
+        neighbor_score=evaluate_solution(neighbor,iteration)
+
 
         delta_e = neighbor_score-score
         if delta_e>0 or np.exp(delta_e/temperature)>random.random():
@@ -531,8 +523,132 @@ def lox_crossover(solution_1, solution_2):
 
     return child
 
+def legalize_solution(solution_1_establishments, solution_2_establishments,unchanged_solution_establishments, maps, lower_point, upper_point):
+    for idx in range(len(solution_1_establishments)):
+        if idx < lower_point or idx > upper_point:
+            for s in maps:
+                if solution_1_establishments[idx] in s:
+                    for establishment in s:
+                        if establishment not in unchanged_solution_establishments:
+                            unchanged_solution_establishments.remove(solution_1_establishments[idx])
+                            solution_1_establishments[idx] = establishment
+                            unchanged_solution_establishments.add(establishment)
+                            break
+                    break
+        else:
+            solution_1_establishments[idx] = solution_2_establishments[idx]
+    return solution_1_establishments
+
+def populate_vehicle(univisited_establishments):
+    vehicle = {"establishments":[],
+               "current_time":datetime.time(9, 0),
+              }
+    for establishment in univisited_establishments:
+        end_of_inspection = can_visit(vehicle,establishment)
+        if end_of_inspection:
+            vehicle["establishments"].append(establishment)
+            vehicle["current_time"] = end_of_inspection
+        else:
+            break
+    for establishment in vehicle["establishments"]:
+        univisited_establishments.remove(establishment)
+    return vehicle, univisited_establishments
+
+
+def populate_solution(solution_1_establishments):
+    solution = {"vehicles":[{"establishments":[],
+               "current_time":datetime.time(9, 0),
+              } for _ in range(0,num_vehicles)],
+              "unvisited_establishments":list(range(1,num_establishments+1))}
+
+
+    for establishment in solution_1_establishments:
+        vehicles_to_check = list(range(0,num_vehicles))
+        for vehicle_to_check in vehicles_to_check:
+            end_of_inspection = can_visit(solution["vehicles"][vehicle_to_check],establishment)
+            if end_of_inspection:
+                solution["vehicles"][vehicle_to_check]["establishments"].append(establishment)
+                solution["unvisited_establishments"].remove(establishment)
+                solution["vehicles"][vehicle_to_check]["current_time"] = end_of_inspection
+                break
+    for vehicle in solution["vehicles"]:
+        if vehicle["establishments"] == []:
+            vehicle, solution["unvisited_establishments"] = populate_vehicle(solution["unvisited_establishments"])
+        time_to_depot = distances.loc[f'p_{vehicle["establishments"][-1]}']['p_0']
+        vehicle["current_time"] = add_seconds(vehicle["current_time"],time_to_depot)
+
+    return solution
+
+def final_crossover(solution_1, solution_2):
+    solution_1_establishments = []
+    solution_2_establishments = []
+    for vehicle in solution_1["vehicles"]: 
+        solution_1_establishments += vehicle["establishments"]
+
+    for vehicle in solution_2["vehicles"]:
+        solution_2_establishments += vehicle["establishments"]
+
+
+    min_size = min(len(solution_1_establishments),len(solution_2_establishments)) - 1
+    random_point1 = random.randint(0,min_size)
+    random_point2 = random.randint(0,min_size)
+    while(random_point2==random_point1):
+        random_point2 = random.randint(0,min_size)
+
+    lower_point, upper_point = (random_point1, random_point2) if random_point1 < random_point2 else (random_point2, random_point1)
+
+    maps = []
+    for idx in range(lower_point, upper_point+1):
+        present = False
+        for s in maps:
+            if solution_1_establishments[idx] in s:
+                s.add(solution_2_establishments[idx])
+                present = True
+                break
+            elif solution_2_establishments[idx] in s:
+                s.add(solution_1_establishments[idx])
+                present = True
+                break
+        if not present:
+                maps.append(set([solution_1_establishments[idx], solution_2_establishments[idx]]))
+
+    joined_sets = []
+
+    while len(maps) > 0:
+        current_set = maps.pop(0)
+        joined = False
+        
+        for i in range(len(maps)):
+            if current_set.intersection(maps[i]):
+                current_set |= maps.pop(i)
+                joined = True
+                break
+                
+        if not joined:
+            joined_sets.append(current_set)
+        else:
+            maps.append(current_set)
+            
+    # add any remaining sets to joined_sets
+    for s in maps:
+        joined_sets.append(s)
+            
+
+    unchanged_solution_1_establishments = set(solution_1_establishments[:lower_point] + solution_1_establishments[upper_point+1:] + solution_2_establishments[lower_point:upper_point+1])
+    unchanged_solution_2_establishments = set(solution_2_establishments[:lower_point] + solution_2_establishments[upper_point+1:] + solution_1_establishments[lower_point:upper_point+1])
+
+
+    solution_1_establishments_copy = solution_1_establishments.copy()
 
     
+    solution_1_establishments = legalize_solution(solution_1_establishments, solution_2_establishments,unchanged_solution_1_establishments, joined_sets, lower_point, upper_point)
+    solution_2_establishments = legalize_solution(solution_2_establishments, solution_1_establishments_copy,unchanged_solution_2_establishments, joined_sets, lower_point, upper_point)
+
+    
+    child1 = populate_solution(solution_1_establishments)
+    child2 = populate_solution(solution_2_establishments)
+
+    return child1, child2
 
 
 """ s1 = generate_random_solution()
@@ -557,42 +673,44 @@ def print_population(population):
     for i in range(len(population)):
         print(f"Solution {i}: {population[i]}, {evaluate_solution(population[i])}")
     
-def tournament_select(population, tournament_size):
+def tournament_select(population, tournament_size,iteration):
     competing_elements = [population[index] for index in np.random.choice(len(population), tournament_size)]
-    return max(competing_elements,key=evaluate_solution)
+    return max(competing_elements, key=lambda solution:evaluate_solution(solution,iteration)) # Initial solution
 
-def get_greatest_fit(population):
+
+def get_greatest_fit(population,iteration):
     best_solution = population[0]
-    best_score = evaluate_solution(population[0])
-    for i in range(1, len(population)):
-        score = evaluate_solution(population[i])
+    best_score = evaluate_solution(best_solution,iteration)
+
+    for i in range(0, len(population)):
+        score = evaluate_solution(population[i],iteration)
         if score > best_score:
             best_score = score
             best_solution = population[i]
     return best_solution, best_score
 
-def replace_least_fittest(population, offspring):
+def replace_least_fittest(population, offspring,iteration):
     least_fittest_index = 0
-    least_fittest_value = evaluate_solution(population[0])
+    least_fittest_value = evaluate_solution(population[0],iteration)
     for i in range(1, len(population)):
-        score = evaluate_solution(population[i])
+        score = evaluate_solution(population[i],iteration)
         if score < least_fittest_value:
             least_fittest_value = score
             least_fittest_index = i
     population[least_fittest_index] = offspring
 
-def roulette_select(population):
-    worst_solution = min(evaluate_solution(solution) for solution in population) 
-    total = sum(evaluate_solution(solution)-worst_solution+1 for solution in population)   
+def roulette_select(population,iteration):
+    worst_solution = min(evaluate_solution(solution,iteration) for solution in population) 
+    total = sum(evaluate_solution(solution,iteration)-worst_solution+1 for solution in population)   
     random_number = random.random()
     current_percentage=0
     for solution in population:
         lower_bound = current_percentage
-        upper_bound = current_percentage+(evaluate_solution(solution)-worst_solution+1)/total
+        upper_bound = current_percentage+(evaluate_solution(solution,iteration)-worst_solution+1)/total
         if random_number>=lower_bound and random_number<=upper_bound:
             return solution
         else:
-            current_percentage+=(evaluate_solution(solution)-worst_solution+1)/total
+            current_percentage+=(evaluate_solution(solution,iteration)-worst_solution+1)/total
 
 
 def mutate_solution(solution):
@@ -603,38 +721,34 @@ def genetic_algorithm(num_iterations, population_size, crossover_func, mutation_
     population = generate_population(population_size)
 
 
-    best_solution = max(population,key=evaluate_solution) # Initial solution
-    best_score = evaluate_solution(best_solution)
+    best_solution = max(population,key=lambda solution:evaluate_solution(solution,1)) # Initial solution
+    best_score = evaluate_solution(best_solution,1)
     print(f"Initial best solution: {best_solution}")
     print(f"Initial best score: {best_score}")
     best_solution_generation = 0 # Generation on which the best solution was found
     
     generation_no = 0
     
+    iteration=1
     
-    while(num_iterations > 0):
+    while(iteration < num_iterations):
         
         generation_no += 1
         print(f"Generation {generation_no}")
         random_winner_sol = random.choice(population)
-        tournment_winner_sol = tournament_select(population,5)
-        roulette_winner_sol = roulette_select(population)
+        tournment_winner_sol = tournament_select(population,5,iteration)
+        roulette_winner_sol = roulette_select(population,iteration)
+
+        child_1, child_2 = crossover_func(random_winner_sol,tournment_winner_sol)
+        child_1 = mutation_func(child_1)
+        child_2 = mutation_func(child_2)
         
-        children = []
-        for i in range(8):
-            children.append(crossover_func(random_winner_sol,roulette_winner_sol))
-            children.append(crossover_func(random_winner_sol,tournment_winner_sol))
-            children.append(crossover_func(roulette_winner_sol,tournment_winner_sol))
+        replace_least_fittest(population,child_1,iteration)
+        replace_least_fittest(population,child_2,iteration)
 
         
-        for child in children:
-            if(random.random()<0.03):
-                child = mutation_func(child)
-            replace_least_fittest(population,child)
-        
-        
         # Checking the greatest fit among the current population
-        greatest_fit, greatest_fit_score = get_greatest_fit(population)
+        greatest_fit, greatest_fit_score = get_greatest_fit(population,iteration)
         if greatest_fit_score > best_score:
             best_solution = greatest_fit
             best_score = greatest_fit_score
@@ -642,9 +756,8 @@ def genetic_algorithm(num_iterations, population_size, crossover_func, mutation_
             if log:
                 print(f"\nGeneration: {generation_no }")
                 print(f"Solution: {best_solution}, score: {best_score}")
-                print_population(population)
         else:
-            num_iterations -= 1
+            iteration += 1
         
     print(f"  Final solution score: {best_score}")
     print(f"  Found on generation {best_solution_generation}")
@@ -682,6 +795,8 @@ def tabu_search(initial_solution, max_iterations, tabu_list_size):
 #print(best_solution) 
 
 
+print(genetic_algorithm(200,20,final_crossover,mutate_solution,log=True))
+
 """ 
 solution_1 = generate_random_solution()
 solution_2 = generate_random_solution()
@@ -703,6 +818,9 @@ print(evaluate_solution(tabu_search_solution)) """
 
 
  
+#get_sa_solution(1000)
+
+""" 
 initial_solution = generate_random_solution()
 print(initial_solution)
 print(evaluate_solution(initial_solution)) 
@@ -710,3 +828,5 @@ print(evaluate_solution(initial_solution))
 final = get_sa_solution(600)
 print(final)
 print(evaluate_solution(final))  
+
+"""
