@@ -72,6 +72,7 @@ def can_visit(vehicle,establishment):
 def generate_random_solution():
     solution={"vehicles":[{"establishments":[],
                "current_time":datetime.time(9, 0),
+               "closed_establishments":0
               } for _ in range(0,num_vehicles)],
               "unvisited_establishments":list(range(1,num_establishments+1))}
     
@@ -132,7 +133,7 @@ def is_possible(establishments):
 def evaluate_solution_with_penalty(solution):
     visited_establishments = num_establishments-len(solution["unvisited_establishments"])
     penalty = 0
-
+    #calculate time 
     for penalty_func in [penalty_repeated_establishments,penalty_establishments_schedule,penalty_overtime_vehicles]:
         penalty+=penalty_func(solution)
 
@@ -199,10 +200,12 @@ def is_possible_penalty(establishments):
         time_to_depot = distances.loc[f'p_{vehicle["establishments"][-1]}']['p_0']
         vehicle["current_time"] = add_seconds(vehicle["current_time"],time_to_depot)
     
+    vehicle["closed_establishments"] = penalty
+    
     return penalty,vehicle
 
 def penalty_establishments_schedule(solution):
-    return sum(map(lambda vehicle:is_possible_penalty(vehicle["establishments"])[0],solution["vehicles"]))
+    return sum(map(lambda vehicle:vehicle["closed_establishments"],solution["vehicles"]))
 
 def penalty_overtime_vehicles(solution):
     penalty = 0 

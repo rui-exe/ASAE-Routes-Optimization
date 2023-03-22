@@ -25,7 +25,7 @@ END_OF_SHIFT = datetime.time(17, 0)
 init_variables(distances, establishments, num_establishments, num_vehicles, END_OF_SHIFT)
 
 init_time = datetime.datetime.now()
-
+"""
 solution = simulated_annealing(0.001,0.1,1000)
 print(is_legal(solution))
 print(solution)
@@ -33,4 +33,9 @@ print(evaluate_solution(solution))
 
 
 final_time = datetime.datetime.now()
-print(final_time-init_time)
+print(final_time-init_time)"""
+
+solution = get_hc_solution(1000)
+print(is_legal(solution))
+print(solution)
+print(evaluate_solution(solution))

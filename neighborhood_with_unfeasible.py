@@ -125,7 +125,7 @@ def get_neighbor_solution(solution):
     best_solution_utility = float('-inf')
 
     for i in range(6):
-        neighbor_function = random.choice([add_random_establishment, remove_random_establishment, change_random_establishment, change_two_establishments_in_vehicle,two_opt_operator])
+        neighbor_function = random.choice([add_random_establishment, remove_random_establishment, change_random_establishment, change_two_establishments_in_vehicle])
         new_solution = neighbor_function(solution)
         new_solution_utility,penalty = utils.evaluate_solution_with_penalty(new_solution)
         new_solution_utility -= penalty
