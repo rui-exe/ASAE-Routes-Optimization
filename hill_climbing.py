@@ -6,10 +6,11 @@ def get_hc_solution(num_iterations, log=False):
     best_solution = utils.generate_random_solution()
     final_solution = best_solution
     best_score,_ = utils.evaluate_solution_with_penalty(best_solution)
+    print(best_score)
     establishments_visited = utils.num_establishments-len(best_solution["unvisited_establishments"])
 
     while iteration < num_iterations:
-        print(f"Iteration {iteration}")
+        #print(f"Iteration {iteration}")
         iteration += 1
         neighbor = get_neighbor_solution(best_solution)
         solution_utility,penalty = utils.evaluate_solution_with_penalty(neighbor)
