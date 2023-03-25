@@ -82,7 +82,7 @@ class EstablishmentGUI:
             solution = get_sa_solution(25*num_establishments)
         elif function == "Genetic Algorithm":
             l = self.loading_window("Genetic Algorithm")
-            solution = genetic_algorithm(1000,100,final_crossover,mutate_solution,True)
+            solution = genetic_algorithm(1000,50,final_crossover,mutate_solution,True)
         # Destroy the loading window and re-enable the submit button
         l.destroy()
         self.submit_button.config(state="normal")
