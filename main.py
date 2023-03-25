@@ -3,7 +3,7 @@ import pandas as pd
 import ast
 import math
 from utils import init_variables,is_legal,evaluate_solution
-from simulated_annealing import simulated_annealing
+from simulated_annealing import get_sa_solution
 from hill_climbing import get_hc_solution
 from genetic import genetic_algorithm, final_crossover, mutate_solution
 import tkinter as tk

@@ -4,8 +4,12 @@ import random
 import copy
 import math
 from neighborhood_with_unfeasible import get_neighbor_solution
+import time
 
-""" def get_sa_solution(num_iterations, log=False):
+
+def get_sa_solution(num_iterations, log=False):
+    start = time.time()
+
     iteration = 0
     temperature = 1000000
     solution = utils.generate_random_solution()
@@ -15,7 +19,7 @@ from neighborhood_with_unfeasible import get_neighbor_solution
     print(solution,best_score)
 
     while iteration < num_iterations:
-        temperature = temperature * 0.999  # Test with different cooling schedules
+        temperature = temperature * 0.99  # Test with different cooling schedules
         iteration += 1
         neighbor = get_neighbor_solution(solution)
 
@@ -24,12 +28,20 @@ from neighborhood_with_unfeasible import get_neighbor_solution
 
         delta_e = neighbor_score_with_penalty-score
 
+        #print(f"Temperature: {temperature}, delta_e:{delta_e}")
         if delta_e>0 or np.exp(delta_e/temperature)>random.random():
+            
             score = neighbor_score_with_penalty
             solution = neighbor 
+            
+            #if(delta_e<0):
+                #print(f"Temperature {temperature}, probability: {np.exp(delta_e/temperature)} ")
 
             if(neighbor_score_without_penalty>best_score and penalty==0):
-                print(f"Current score: {neighbor_score_without_penalty}")
+                end = time.time()
+                print(f"Elapsed time{end - start}")
+                print(f"Current score: {neighbor_score_without_penalty} found at {iteration}")
+                print(solution)
                 iteration=1
                 best_score=neighbor_score_without_penalty
                 best_solution=solution
@@ -38,9 +50,9 @@ from neighborhood_with_unfeasible import get_neighbor_solution
             print(f"Solution: {best_solution}, score: {best_score},  Temp: {temperature}")
 
     print(f"Final Solution: {best_solution}, score: {best_score}")
-    return best_solution """
+    return best_solution 
 
-def generate_t0(current_solution,n_attempts,alfa):
+""" def generate_t0(current_solution,n_attempts,alfa):
 
     # define the number of attempts
     current_solution_score, penalty = utils.evaluate_solution_with_penalty(current_solution)
@@ -122,4 +134,4 @@ def simulated_annealing(tf, stable_temperature, max_iter, a=2, f=1/3):
             i += 1
         reheat += 1
         temp = t0
-    return best_solution
+    return best_solution """
