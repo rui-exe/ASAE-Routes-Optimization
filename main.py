@@ -35,6 +35,7 @@ print(evaluate_solution(solution))
 final_time = datetime.datetime.now()
 print(final_time-init_time)"""
 
-solution = get_sa_solution(100000)
+solution = get_hc_solution(1000)
 print(is_legal(solution))
 print(solution)
+
