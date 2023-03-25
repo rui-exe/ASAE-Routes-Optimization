@@ -26,5 +26,4 @@ def get_hc_solution(num_iterations, log=False):
 
         if log:
             (print(f"Solution:       {best_solution}, score: {best_score}"))
-
     return final_solution
