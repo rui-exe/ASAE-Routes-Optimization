@@ -39,5 +39,5 @@ def get_hc_solution(num_iterations, log=False):
     plt.xlabel('Time (seconds)')
     plt.ylabel('Solution Utility')
     plt.savefig('plots/hc_solution_utility' + str(time.time()) + '.png')
-
+    print("Final solution: ",final_solution)
     return final_solution
