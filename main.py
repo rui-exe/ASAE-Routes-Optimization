@@ -3,7 +3,7 @@ import pandas as pd
 import ast
 import math
 from utils import init_variables,is_legal,evaluate_solution
-from simulated_annealing import simulated_annealing
+from simulated_annealing import get_sa_solution
 from hill_climbing import get_hc_solution
 
 distancesFileName = "distances.csv"
@@ -35,7 +35,6 @@ print(evaluate_solution(solution))
 final_time = datetime.datetime.now()
 print(final_time-init_time)"""
 
-solution = get_hc_solution(1000)
+solution = get_sa_solution(100000)
 print(is_legal(solution))
 print(solution)
-print(evaluate_solution(solution))
