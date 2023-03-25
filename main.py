@@ -79,10 +79,10 @@ class EstablishmentGUI:
             solution = get_hc_solution(1000)
         elif function == "Simulated Annealing":
             l = self.loading_window("Simulated Annealing")
-            solution = get_sa_solution(1000, 0.99)
+            solution = get_sa_solution(25*num_establishments)
         elif function == "Genetic Algorithm":
             l = self.loading_window("Genetic Algorithm")
-            solution = genetic_algorithm(500,50,final_crossover,mutate_solution)
+            solution = genetic_algorithm(1000,100,final_crossover,mutate_solution,True)
         # Destroy the loading window and re-enable the submit button
         l.destroy()
         self.submit_button.config(state="normal")
@@ -92,10 +92,14 @@ class EstablishmentGUI:
         vehicle_window = tk.Toplevel(self.master)
         vehicle_window.protocol("WM_DELETE_WINDOW", self.on_close)
         vehicle_window.title("Select a vehicle")
-        vehicle_window.geometry("300x200")
+        vehicle_window.geometry("400x400")
         self.master.eval(f'tk::PlaceWindow {str(vehicle_window)} center')
         vehicle_window.resizable(False, False)
         vehicle_window.configure(bg="white")
+        solution_label = tk.Label(vehicle_window, text="Solution evaluation:", font=("Arial", 12))
+        solution_label.pack(pady=10)
+        solution_label = tk.Label(vehicle_window, text="{}".format(evaluate_solution(solution)), font=("Arial", 12))
+        solution_label.pack(pady=10)
         vehicle_label = tk.Label(vehicle_window, text="Select a vehicle:", font=("Arial", 12))
         vehicle_label.pack(pady=10)
         vehicle_option = tk.StringVar(vehicle_window)

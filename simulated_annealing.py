@@ -5,6 +5,8 @@ import copy
 import math
 from neighborhood_with_unfeasible import get_neighbor_solution
 import time
+import datetime
+import matplotlib.pyplot as plt
 
 
 INITIAL_STAGE = 0
@@ -20,17 +22,16 @@ FINAL_STAGE_ITERATIONS = 30
 
 ITERATIONS_PER_STAGE = [INITIAL_STAGE_ITERATIONS,INTERMEDIATE_STAGE_ITERATIONS,FINAL_STAGE_ITERATIONS]
 
-COOLING_RATE = 0.995
 
 def get_sa_solution(num_iterations, log=False):
     iteration = 0
-    temperature = 1000000
+    temperature = 1000
     solution = utils.generate_random_solution()
     score,_ = utils.evaluate_solution_with_penalty(solution)
     best_solution = copy.deepcopy(solution)
     best_score = score
-
-
+    nr_establishments = num_iterations/25
+    COOLING_RATE = 1-(1/(nr_establishments))
     while iteration < num_iterations:
         temperature = temperature * COOLING_RATE  
         iteration += 1
@@ -49,15 +50,18 @@ def get_sa_solution(num_iterations, log=False):
             
             score = neighbor_score_with_penalty
             solution = neighbor 
+            print(score , temperature)
+
 
             if(neighbor_score_without_penalty>best_score and penalty==0):
                 iteration=1
                 best_score=neighbor_score_without_penalty
                 best_solution=solution
+                print("New best score: ",best_score)
 
             
-
-
+    print("Final solution: ",best_solution)
+    print("Final score: ",best_score)
     return best_solution 
 
 
@@ -73,7 +77,8 @@ def get_sa_solution_adaptive_with_stages(num_iterations, log=False):
     best_solution = copy.deepcopy(solution)
     best_score = score
     iterations_at_temp_scaling_factor = 1
-
+    nr_establishments = num_iterations/25
+    COOLING_RATE = 1-(1/(nr_establishments))
 
     while iteration < num_iterations:
         temperature = temperature * COOLING_RATE  

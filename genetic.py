@@ -2,6 +2,9 @@ import numpy as np
 import random
 import datetime
 import utils
+import time
+import matplotlib.pyplot as plt
+import datetime
 from neighborhood_genetic import get_neighbor_solution
 
 # Genetic Algorithms 
@@ -303,6 +306,9 @@ def genetic_algorithm(num_iterations, population_size, crossover_func, mutation_
     best_solution_generation = 0 # Generation on which the best solution was found
     
     generation_no = 0
+    start_time = time.time()
+    solution_utilities = [best_score]
+    times = [0]
     
     
     while(num_iterations > 0):
@@ -330,13 +336,19 @@ def genetic_algorithm(num_iterations, population_size, crossover_func, mutation_
             best_solution = greatest_fit
             best_score = greatest_fit_score
             best_solution_generation = generation_no
+            solution_utilities.append(best_score)
+            times.append(time.time()-start_time)
             if log:
                 print(f"\nGeneration: {generation_no }")
-                print(f"Solution: {best_solution}, score: {best_score}")
+                print(f"score: {best_score}")
         else:
             num_iterations -= 1
         
     print(f"  Final solution score: {best_score}")
     print(f"  Found on generation {best_solution_generation}")
-    
+    plt.plot(times, solution_utilities)
+    plt.title('Solution Utility over Time (GA)')
+    plt.xlabel('Time (seconds)')
+    plt.ylabel('Solution Utility')
+    plt.savefig('plots/ga_solution_utility' + str(datetime.datetime.now()) + '.png')
     return best_solution

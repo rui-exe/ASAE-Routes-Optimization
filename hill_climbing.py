@@ -2,6 +2,7 @@ import utils
 from neighborhood_with_unfeasible import get_neighbor_solution
 import time
 import matplotlib.pyplot as plt
+import datetime
 
 def get_hc_solution(num_iterations, log=False):
     iteration = 0
@@ -25,7 +26,7 @@ def get_hc_solution(num_iterations, log=False):
             best_score = solution_utility
             best_solution = neighbor
             if(penalty==0):
-                print(solution_utility)
+                print("New best score: ",best_score)
                 final_solution=best_solution
                 solution_utilities.append(solution_utility)
                 times.append(time.time()-start_time)
@@ -38,6 +39,6 @@ def get_hc_solution(num_iterations, log=False):
     plt.title('Solution Utility over Time (HC)')
     plt.xlabel('Time (seconds)')
     plt.ylabel('Solution Utility')
-    plt.savefig('plots/hc_solution_utility' + str(time.time()) + '.png')
+    plt.savefig('plots/hc_solution_utility' + str(datetime.datetime.now()) + '.png')
     print("Final solution: ",final_solution)
     return final_solution
