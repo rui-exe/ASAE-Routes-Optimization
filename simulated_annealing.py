@@ -25,12 +25,16 @@ ITERATIONS_PER_STAGE = [INITIAL_STAGE_ITERATIONS,INTERMEDIATE_STAGE_ITERATIONS,F
 
 def get_sa_solution(num_iterations, log=False):
     iteration = 0
-    temperature = 1000
+    temperature = 1000000
     solution = utils.generate_random_solution()
     score,_ = utils.evaluate_solution_with_penalty(solution)
     best_solution = copy.deepcopy(solution)
     best_score = score
+    print("Initial score: ",best_score)
     nr_establishments = num_iterations/25
+    times = [0]
+    start_time = time.time()
+    solution_utilities = [score]
     COOLING_RATE = 1-(1/(nr_establishments))
     while iteration < num_iterations:
         temperature = temperature * COOLING_RATE  
@@ -50,16 +54,22 @@ def get_sa_solution(num_iterations, log=False):
             
             score = neighbor_score_with_penalty
             solution = neighbor 
-            print(score , temperature)
 
 
             if(neighbor_score_without_penalty>best_score and penalty==0):
                 iteration=1
                 best_score=neighbor_score_without_penalty
                 best_solution=solution
+                times.append(time.time()-start_time)
+                solution_utilities.append(best_score)
                 print("New best score: ",best_score)
 
-            
+    plt.plot(times, solution_utilities)
+    plt.title('Solution Utility over Time (SA) -  '+str(nr_establishments)+' Establishments')
+    plt.xlabel('Time (seconds)')
+    plt.ylabel('Solution Utility')
+    date = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+    plt.savefig('plots/sa_solution_utility' + str(date) + '.png')
     print("Final solution: ",best_solution)
     print("Final score: ",best_score)
     return best_solution 

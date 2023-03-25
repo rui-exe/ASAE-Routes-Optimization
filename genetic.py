@@ -347,8 +347,9 @@ def genetic_algorithm(num_iterations, population_size, crossover_func, mutation_
     print(f"  Final solution score: {best_score}")
     print(f"  Found on generation {best_solution_generation}")
     plt.plot(times, solution_utilities)
-    plt.title('Solution Utility over Time (GA)')
+    plt.title('Solution Utility over Time (GA) - ' + str(utils.num_establishments) + ' Establishments')
     plt.xlabel('Time (seconds)')
     plt.ylabel('Solution Utility')
-    plt.savefig('plots/ga_solution_utility' + str(datetime.datetime.now()) + '.png')
+    date = datetime.datetime.now()
+    plt.savefig('plots/ga_solution_utility' + date.strftime("%Y%m%d-%H%M%S") + '.png')
     return best_solution

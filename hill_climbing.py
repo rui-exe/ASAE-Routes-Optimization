@@ -36,9 +36,10 @@ def get_hc_solution(num_iterations, log=False):
             (print(f"Solution:       {best_solution}, score: {best_score}"))
 
     plt.plot(times, solution_utilities)
-    plt.title('Solution Utility over Time (HC)')
+    plt.title('Solution Utility over Time (HC) -  ' + str(utils.num_establishments) + ' Establishments')
     plt.xlabel('Time (seconds)')
     plt.ylabel('Solution Utility')
-    plt.savefig('plots/hc_solution_utility' + str(datetime.datetime.now()) + '.png')
+    date = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+    plt.savefig('plots/hc_solution_utility' + str(date) + '.png')
     print("Final solution: ",final_solution)
     return final_solution
