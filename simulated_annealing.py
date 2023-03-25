@@ -53,15 +53,15 @@ def get_sa_solution(num_iterations, log=False):
         if delta_e>0 or np.exp(delta_e/temperature)>random.random():
             
             score = neighbor_score_with_penalty
-            solution = neighbor 
+            solution = neighbor
+            times.append(time.time()-start_time)
+            solution_utilities.append(score)
 
 
             if(neighbor_score_without_penalty>best_score and penalty==0):
                 iteration=1
                 best_score=neighbor_score_without_penalty
                 best_solution=solution
-                times.append(time.time()-start_time)
-                solution_utilities.append(best_score)
                 print("New best score: ",best_score)
 
     plt.plot(times, solution_utilities)

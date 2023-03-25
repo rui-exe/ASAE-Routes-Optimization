@@ -320,11 +320,9 @@ def genetic_algorithm(num_iterations, population_size, crossover_func, mutation_
         roulette_winner_sol = roulette_select(population)
         
         
-        child_1, child_2 = crossover_func(random_winner_sol,tournment_winner_sol)
-        if random.random()<0.25:    
-            child_1 = mutation_func(child_1)
-        if random.random()<0.25:
-            child_2 = mutation_func(child_2)
+        child_1, child_2 = crossover_func(random_winner_sol,tournment_winner_sol)   
+        child_1 = mutation_func(child_1)
+        child_2 = mutation_func(child_2)
         
         replace_least_fittest(population,child_1)
         replace_least_fittest(population,child_2)
