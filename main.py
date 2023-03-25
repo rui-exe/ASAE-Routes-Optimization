@@ -3,7 +3,7 @@ import pandas as pd
 import ast
 import math
 from utils import init_variables,is_legal,evaluate_solution
-from simulated_annealing import get_sa_solution
+from simulated_annealing import get_sa_solution,get_sa_solution_adaptive_with_stages
 from hill_climbing import get_hc_solution
 from genetic import genetic_algorithm, final_crossover, mutate_solution
 import tkinter as tk
@@ -23,7 +23,14 @@ conv = {'Opening Hours': lambda x: ast.literal_eval(x)}
 distances = pd.read_csv(distancesFileName,index_col=0)
 establishments = pd.read_csv(establishmentsFileName, converters=conv)
 
+
+num_establishments = 100
+
+num_vehicles = math.floor(0.1*num_establishments)
+
 END_OF_SHIFT = datetime.time(17, 0)
+
+init_variables(distances, establishments, num_establishments, num_vehicles, END_OF_SHIFT)
 
 
 class EstablishmentGUI:
@@ -157,3 +164,4 @@ if __name__ == "__main__":
     root = tk.Tk()
     my_gui = EstablishmentGUI(root)
     root.mainloop()
+
