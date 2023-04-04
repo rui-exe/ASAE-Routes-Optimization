@@ -4,6 +4,17 @@ import time
 import matplotlib.pyplot as plt
 import datetime
 
+
+
+"""
+    Hill Climbing Algorithm
+    Parameters:
+        num_iterations: number of iterations to run the algorithm
+        log: if True, prints the solution and score at each iteration
+    Returns:
+        final_solution: the best solution found
+"""
+
 def get_hc_solution(num_iterations, log=False):
     iteration = 0
     best_solution = utils.generate_random_solution()

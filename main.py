@@ -2,8 +2,8 @@ import datetime
 import pandas as pd
 import ast
 import math
-from utils import init_variables,is_legal,evaluate_solution
-from simulated_annealing import get_sa_solution,get_sa_solution_adaptive_with_stages
+from utils import init_variables,evaluate_solution
+from simulated_annealing import get_sa_solution
 from hill_climbing import get_hc_solution
 from genetic import genetic_algorithm, final_crossover, mutate_solution
 import tkinter as tk
@@ -14,6 +14,13 @@ from folium.plugins import MarkerCluster
 from folium.plugins import AntPath
 import sys
 
+
+"""
+    Main file
+    Contains the GUI and calls the functions to run the algorithms
+    Also responsible for reading the csv files and initializing the variables
+"""
+
 distancesFileName = "distances.csv"
 establishmentsFileName = "establishments.csv"
 
@@ -23,16 +30,14 @@ conv = {'Opening Hours': lambda x: ast.literal_eval(x)}
 distances = pd.read_csv(distancesFileName,index_col=0)
 establishments = pd.read_csv(establishmentsFileName, converters=conv)
 
-
-num_establishments = 100
-
-num_vehicles = math.floor(0.1*num_establishments)
-
 END_OF_SHIFT = datetime.time(17, 0)
 
-init_variables(distances, establishments, num_establishments, num_vehicles, END_OF_SHIFT)
-
-
+"""
+    GUI
+    We used tkinter to create the GUI
+    The GUI has two inputs: the number of establishments we want to consider
+     on the data set, and the function to run.
+"""
 class EstablishmentGUI:
     def __init__(self, master):
         self.master = master
@@ -90,7 +95,7 @@ class EstablishmentGUI:
         # Prompt the user to select a vehicle
         veh_options = ["Vehicle {}".format(i) for i in range(1, num_vehicles+1)]
         vehicle_window = tk.Toplevel(self.master)
-        vehicle_window.protocol("WM_DELETE_WINDOW", self.on_close)
+        vehicle_window.protocol("WM_DELETE_WINDOW", vehicle_window.destroy)
         vehicle_window.title("Select a vehicle")
         vehicle_window.geometry("400x400")
         self.master.eval(f'tk::PlaceWindow {str(vehicle_window)} center')

@@ -1,7 +1,18 @@
 import copy
 import random
 import utils
+"""
+    Neighborhood with unfeasible solutions
+    Contains the functions to generate a neighbor solution
+    Allows infeasible solutions by penalizing them
+"""
 
+
+"""
+    Changes two establishments in a vehicle
+    Parameters: solution
+    Returns: neighbor solution
+"""
 def change_two_establishments_in_vehicle(solution):
     neighbor = copy.deepcopy(solution)
     vehicle = random.randint(0,utils.num_vehicles-1)
@@ -18,7 +29,11 @@ def change_two_establishments_in_vehicle(solution):
     neighbor["vehicles"][vehicle]=new_vehicle
     return neighbor
             
-
+"""
+    Changes two establishments in two different vehicles
+    Parameters: solution
+    Returns: neighbor solution
+"""
 def change_random_establishment(solution):
     neighbor = copy.deepcopy(solution)
     vehicle = random.randint(0,utils.num_vehicles-1)
@@ -40,7 +55,11 @@ def change_random_establishment(solution):
     neighbor["vehicles"][vehicle]=new_vehicle
     return neighbor
 
-
+"""
+    Removes a random establishment from a vehicle
+    Parameters: solution
+    Returns: neighbor solution
+"""
 def remove_random_establishment(solution):
     neighbor = copy.deepcopy(solution)
     vehicle = random.randint(0,utils.num_vehicles-1)
@@ -57,7 +76,11 @@ def remove_random_establishment(solution):
     neighbor["vehicles"][vehicle] = new_vehicle
     return neighbor
     
-
+"""
+    Adds a random establishment to a vehicle
+    Parameters: solution
+    Returns: neighbor solution
+"""
 def add_random_establishment(solution):
     neighbor = copy.deepcopy(solution)
     vehicle = random.randint(0,utils.num_vehicles-1)
@@ -69,7 +92,11 @@ def add_random_establishment(solution):
     (_,new_vehicle)=utils.is_possible_penalty(neighbor["vehicles"][vehicle]["establishments"])
     neighbor["vehicles"][vehicle]=new_vehicle
     return neighbor
-
+"""
+    Changes two sublists in a route/routes
+    Parameters: solution
+    Returns: neighbor solution
+"""
 def two_opt_operator(solution):
     # Choose two consecutive sublists
     neighbor = copy.deepcopy(solution)
@@ -87,7 +114,11 @@ def two_opt_operator(solution):
     # Apply the chosen sub-operator
     sub_operator(neighbor, route_index, sublist_index, sublist1)
     return neighbor
-
+"""
+    Exchanges two sublists within a route
+    Parameters: solution, route index, sublist index, sublist1
+    Returns: neighbor solution
+"""
 def exchange_sublists_within_route(solution, route_index, sublist_index, sublist1):
     # Choose another sublist in the same route
     if len(solution["vehicles"][route_index]["establishments"]) < 5:
@@ -101,7 +132,11 @@ def exchange_sublists_within_route(solution, route_index, sublist_index, sublist
     solution["vehicles"][route_index]["establishments"][sublist_index:sublist_index + 2] = sublist2
     solution["vehicles"][route_index]["establishments"][sublist2_index:sublist2_index + 2] = sublist1
     return solution
-
+"""
+    Exchanges two sublists between two routes
+    Parameters: solution, route index, sublist index, sublist1
+    Returns: neighbor solution
+"""
 def exchange_sublists_between_routes(solution, route_index, sublist_index, sublist1):
     # Choose another route
     route2_index = random.randint(0, len(solution["vehicles"]) - 1)
@@ -119,7 +154,11 @@ def exchange_sublists_between_routes(solution, route_index, sublist_index, subli
     return solution
 
 
-
+"""
+    Gets a neighbor solution, given a solution, using the above functions
+    Parameters: solution
+    Returns: neighbor solution
+"""
 def get_neighbor_solution(solution):
     best_solution = []
     best_solution_utility = float('-inf')
@@ -132,5 +171,4 @@ def get_neighbor_solution(solution):
         if new_solution_utility > best_solution_utility:
             best_solution_utility = new_solution_utility
             best_solution = new_solution
-            
     return best_solution

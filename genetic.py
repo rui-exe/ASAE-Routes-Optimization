@@ -9,107 +9,18 @@ from neighborhood_genetic import get_neighbor_solution
 
 # Genetic Algorithms 
 
-
-def lox_crossover(solution_1, solution_2):
-    solution_1_establishments = []
-    solution_2_establishments = []
-    child = dict()
-    unvisited_establishments = set([establishment for establishment in range(1,utils.num_establishments+1)])
-
-
-    for vehicle in solution_1["vehicles"]: 
-        solution_1_establishments += vehicle["establishments"]
-
-    for vehicle in solution_2["vehicles"]:
-        solution_2_establishments += vehicle["establishments"]
-
-    random_point1 = random.randint(0,len(solution_1_establishments))
-    random_point2 = random.randint(0,len(solution_1_establishments))
-    while(random_point2==random_point1):
-        random_point2 = random.randint(0,len(solution_1_establishments))
-
-    lower_point, upper_point = (random_point1, random_point2) if random_point1 < random_point2 else (random_point2, random_point1)
-    #print((lower_point,upper_point))
-    child_establishments = [0 for i in range(0,max(len(solution_1_establishments),len(solution_2_establishments)))]
-
-
-    solution_1_chromossomes = solution_1_establishments[lower_point:upper_point+1]
-    solution_2_chromossomes = [establishment for establishment in solution_2_establishments if establishment not in solution_1_chromossomes]
-    
-    child_establishments[lower_point:upper_point+1] = solution_1_chromossomes
-    child_establishments[:lower_point] = solution_2_chromossomes[:lower_point]
-
-    if(len(solution_1_establishments)<len(solution_2_establishments)):
-        child_establishments + [0 for i in range(len(solution_2_establishments)-len(solution_1_establishments))]
-
-    child_establishments[upper_point+1:] = solution_2_chromossomes[lower_point:]
-        
-    if(len(solution_1_establishments)>len(solution_2_establishments)):
-        child_establishments + [0 for i in range(len(solution_1_establishments)-len(solution_2_establishments))]
-        leftover_solution_1_chromossomes = [establishment for establishment in solution_1_establishments if establishment not in child_establishments]
-        child_establishments[len(solution_2_establishments)+1:] = leftover_solution_1_chromossomes
-
-
-
-    #seperate child into vehicles
-
-    lower_index = 0
-    upper_index = 0
-    child["vehicles"] = []
-    while upper_index < len(child_establishments) and len(child["vehicles"])<utils.num_vehicles:
-        lower_index = upper_index
-        is_vehicle_possible, vehicle = utils.is_possible(child_establishments[lower_index:upper_index])
-        last_possible_vehicle = vehicle
-        while upper_index < len(child_establishments):
-            last_possible_vehicle = vehicle
-            is_vehicle_possible, vehicle = utils.is_possible(child_establishments[lower_index:upper_index])
-            if(not is_vehicle_possible):
-                break
-            else:
-                upper_index += 1
-
-        if(not is_vehicle_possible):
-            child["vehicles"].append(last_possible_vehicle)
-            unvisited_establishments = unvisited_establishments.difference(last_possible_vehicle["establishments"])
-
-        else:
-            child["vehicles"].append(vehicle)
-            unvisited_establishments = unvisited_establishments.difference(vehicle["establishments"])
-
-
-    if(len(child["vehicles"])<utils.num_vehicles):
-        """
-        diff = num_vehicles-len(child["vehicles"])
-         print(f"{diff} vehicles added")
-        print(f"{len(unvisited_establishments)} unvisited establishments") """
-        unvisited_establishments_list = list(unvisited_establishments)
-        random.shuffle(unvisited_establishments_list)
-        lower_index=0
-        upper_index=0
-        while upper_index < len(unvisited_establishments_list) and len(child["vehicles"])<utils.num_vehicles:
-            lower_index = upper_index
-            is_vehicle_possible, vehicle = utils.is_possible(unvisited_establishments_list[lower_index:upper_index])
-            last_possible_vehicle = vehicle
-            while upper_index < len(unvisited_establishments_list):
-                last_possible_vehicle = vehicle
-                is_vehicle_possible, vehicle = utils.is_possible(unvisited_establishments_list[lower_index:upper_index])
-                if(not is_vehicle_possible):
-                    break
-                else:
-                    upper_index += 1
-
-            if(not is_vehicle_possible):
-                child["vehicles"].append(last_possible_vehicle)
-                unvisited_establishments = unvisited_establishments.difference(last_possible_vehicle["establishments"])
-
-            else:
-                child["vehicles"].append(vehicle)
-                unvisited_establishments = unvisited_establishments.difference(vehicle["establishments"])
-    
-    child["unvisited_establishments"] = list(unvisited_establishments)
-
-    return child
-
+"""
+    Legalize Solution
+    Parameters:
+        solution_1_establishments: establishments of the first solution
+        solution_2_establishments: establishments of the second solution
+        unchanged_solution_establishments: establishments of the unchanged solution
+        maps: maps used in the partially mapped crossover
+        lower_point: lower point of the crossover
+        upper_point: upper point of the crossover
+    Returns:
+        solution_1_establishments: legalized establishments of the first solution
+"""	
 def legalize_solution(solution_1_establishments, solution_2_establishments,unchanged_solution_establishments, maps, lower_point, upper_point):
     for idx in range(len(solution_1_establishments)):
         if idx < lower_point or idx > upper_point:
@@ -126,6 +37,15 @@ def legalize_solution(solution_1_establishments, solution_2_establishments,uncha
             solution_1_establishments[idx] = solution_2_establishments[idx]
     return solution_1_establishments
 
+"""
+    Populate Vehicle with Establishments
+    Parameters:
+        univisited_establishments: unvisited establishments
+    Returns:
+        vehicle: vehicle with establishments
+        univisited_establishments: unvisited establishments that were not added to the vehicle
+"""
+
 def populate_vehicle(univisited_establishments):
     vehicle = {"establishments":[],
                "current_time":datetime.time(9, 0),
@@ -141,7 +61,11 @@ def populate_vehicle(univisited_establishments):
         univisited_establishments.remove(establishment)
     return vehicle, univisited_establishments
 
-
+"""
+    Populate Solution with Establishments
+    Parameters: solution_1_establishments: establishments of the first solution
+    Returns: solution: solution with establishments
+"""
 def populate_solution(solution_1_establishments):
     solution = {"vehicles":[{"establishments":[],
                "current_time":datetime.time(9, 0),
@@ -165,6 +89,14 @@ def populate_solution(solution_1_establishments):
         vehicle["current_time"] = utils.add_seconds(vehicle["current_time"],time_to_depot)
 
     return solution
+
+"""
+    Partially Matched Crossover
+    Parameters: solution_1: first solution to be crossed
+                solution_2: second solution to be crossed
+    Returns:    child_1: first child after crossover
+                child_2: second child after crossover
+"""
 
 def final_crossover(solution_1, solution_2):
     solution_1_establishments = []
@@ -237,10 +169,12 @@ def final_crossover(solution_1, solution_2):
 
     return child1, child2
 
-
-
-
-#4.2 d)
+"""
+    Generate the population
+    Parameters: population_size: size of the population
+    Returns:    solutions: list of solutions
+    
+"""
 def generate_population(population_size):
     solutions = []
     for i in range(population_size):
@@ -248,15 +182,30 @@ def generate_population(population_size):
         solutions.append(utils.generate_random_solution())
     return solutions
 
+"""
+    Print the population
+    Parameters: population: population to be printed
+"""
 def print_population(population):
     solutions = []
     for i in range(len(population)):
         print(f"Solution {i}: {population[i]}, {utils.evaluate_solution(population[i])}")
-    
+
+"""
+    Select the best solution from the population using tournament selection
+    Parameters: population: population to be selected from
+                tournament_size: size of the tournament
+    Returns:    max(competing_elements,key=utils.evaluate_solution):  which is the best solution
+                
+"""
+
 def tournament_select(population, tournament_size):
     competing_elements = [population[index] for index in np.random.choice(len(population), tournament_size)]
     return max(competing_elements,key=utils.evaluate_solution)
-
+"""
+    Select the best solution from the population
+    Parameters: population: population to be selected from
+"""
 def get_greatest_fit(population):
     best_solution = population[0]
     best_score = utils.evaluate_solution(population[0])
@@ -267,6 +216,11 @@ def get_greatest_fit(population):
             best_solution = population[i]
     return best_solution, best_score
 
+"""
+    Replace the least fittest solution from the population
+    Parameters: population: population to be replaced from
+                offspring: offspring to be inserted
+"""
 def replace_least_fittest(population, offspring):
     least_fittest_index = 0
     least_fittest_value = utils.evaluate_solution(population[0])
@@ -277,6 +231,11 @@ def replace_least_fittest(population, offspring):
             least_fittest_index = i
     population[least_fittest_index] = offspring
 
+"""
+    Roulette wheel selection used in the genetic algorithm
+    Parameters: population: population to be selected from
+    Returns:    solution: selected solution
+"""
 def roulette_select(population):
     worst_solution = min(utils.evaluate_solution(solution) for solution in population) 
     total = sum(utils.evaluate_solution(solution)-worst_solution+1 for solution in population)   
@@ -290,11 +249,23 @@ def roulette_select(population):
         else:
             current_percentage+=(utils.evaluate_solution(solution)-worst_solution+1)/total
 
-
+"""
+    Mutation function
+    Parameters: solution: solution to be mutated
+    Returns:    get_neighbor_solution(solution): neighbor solution
+"""
 def mutate_solution(solution):
     return get_neighbor_solution(solution)
 
-
+"""
+    Genetic algorithm
+    Parameters: num_iterations: number of iterations
+                population_size: size of the population
+                crossover_func: crossover function
+                mutation_func: mutation function
+                log: log the results
+    Returns:    best_solution: best solution found
+"""
 def genetic_algorithm(num_iterations, population_size, crossover_func, mutation_func, log=False):
     population = generate_population(population_size)
 

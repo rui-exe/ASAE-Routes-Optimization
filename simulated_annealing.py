@@ -22,7 +22,17 @@ FINAL_STAGE_ITERATIONS = 30
 
 ITERATIONS_PER_STAGE = [INITIAL_STAGE_ITERATIONS,INTERMEDIATE_STAGE_ITERATIONS,FINAL_STAGE_ITERATIONS]
 
+""" Simulated Annealing algorithm
 
+    Parameters
+    ----------
+    num_iterations : int
+        Number of iterations to run the algorithm
+    log : bool
+        If True, the algorithm will print the best solution found at each iteration
+    
+    Returns the best solution found
+"""
 def get_sa_solution(num_iterations, log=False):
     iteration = 0
     temperature = 1000000
@@ -75,7 +85,25 @@ def get_sa_solution(num_iterations, log=False):
     return best_solution 
 
 
+""" Simulated Annealing algorithm with adaptive iterations per temperature
 
+    Parameters
+    ----------
+    num_iterations : int
+        Number of iterations to run the algorithm
+    log : bool
+        If True, the algorithm will print the best solution found at each iteration
+
+
+    3 different stages according to the temperature are defined:
+        - Initial stage: 1 iteration per temperature
+        - Intermediate stage: 10 iterations per temperature
+        - Final stage: 30 iterations per temperature
+    number of iterations per temperature is increased if no improvement is found
+
+    Returns the best solution found
+
+"""
 def get_sa_solution_adaptive_with_stages(num_iterations, log=False):
     start = time.time()
     iteration = 0
