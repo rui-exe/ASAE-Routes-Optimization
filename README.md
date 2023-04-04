@@ -1,4 +1,4 @@
-# IA Firt Assignment
+# IA First Assignment
 
 # Optimal Inspection Routes Problem
 
