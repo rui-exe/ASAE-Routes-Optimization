@@ -29,6 +29,10 @@ pip install folium
 ```
 
 ## Running the project
+
+**Keep in mind that everytime you run the program with a metaheuristic, a graph will be generated for that same metaheuristic, plotting the solution utility in function of time.
+They will be saved in the "plots" folder, with the name of the metaheuristic, followed by the correct date and time which it was plotted, ex: sa_solution_utility20230404-223857.png**
+
 - To run the project you need to run the following command:
 ```bash
 python3 main.py
